@@ -6,19 +6,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FlowBeat</title>
     <script>
-      // If this page was opened as a Spotify auth popup, send the code
-      // back to the parent window and close immediately.
-      // This runs before React boots, so it's instant.
       (function () {
+        var params = new URLSearchParams(window.location.search);
+        var code = params.get('code');
+        var error = params.get('error');
+
+        console.log('[FlowBeat popup] window.opener:', !!window.opener);
+        console.log('[FlowBeat popup] code found:', !!code);
+        console.log('[FlowBeat popup] error found:', error);
+        console.log('[FlowBeat popup] origin:', window.location.origin);
+
         if (window.opener) {
-          var params = new URLSearchParams(window.location.search);
-          var code = params.get('code');
-          var error = params.get('error');
           if (code) {
+            console.log('[FlowBeat popup] Sending spotify_code to opener...');
             window.opener.postMessage({ spotify_code: code }, window.location.origin);
+            console.log('[FlowBeat popup] postMessage sent. Closing...');
             window.close();
           } else if (error) {
+            console.log('[FlowBeat popup] Sending spotify_error to opener...');
             window.opener.postMessage({ spotify_error: error }, window.location.origin);
+            window.close();
+          } else {
+            console.log('[FlowBeat popup] No code or error in URL — not a callback page.');
+          }
+        } else {
+          if (code) {
+            // opener lost — store code in sessionStorage so main window can poll for it
+            console.log('[FlowBeat popup] No opener! Storing code in sessionStorage as fallback.');
+            sessionStorage.setItem('spotify_callback_code', code);
+            // Try to close anyway — main window polls sessionStorage
             window.close();
           }
         }

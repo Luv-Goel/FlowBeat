@@ -35,26 +35,44 @@ export async function loginWithSpotify() {
   });
 
   console.log('[FlowBeat] Opening Spotify popup, redirect_uri:', REDIRECT_URI);
-  window.open(
+  const popup = window.open(
     `https://accounts.spotify.com/authorize?${params}`,
     'spotify_auth',
     'width=500,height=700,left=400,top=100'
   );
 
   return new Promise((resolve, reject) => {
-    // Absolute timeout: if no message arrives in 2 minutes, give up
     const timeout = setTimeout(() => {
       window.removeEventListener('message', onMessage);
+      clearInterval(pollTimer);
       reject(new Error('Spotify auth timed out. Please try again.'));
     }, 120_000);
 
+    // Fallback: poll sessionStorage in case opener reference was lost
+    const pollTimer = setInterval(async () => {
+      const fallbackCode = sessionStorage.getItem('spotify_callback_code');
+      if (fallbackCode) {
+        sessionStorage.removeItem('spotify_callback_code');
+        clearInterval(pollTimer);
+        clearTimeout(timeout);
+        window.removeEventListener('message', onMessage);
+        console.log('[FlowBeat] Got code via sessionStorage fallback, exchanging...');
+        try {
+          const tokens = await exchangeCodeForToken(fallbackCode);
+          console.log('[FlowBeat] Token exchange success (fallback) ✓');
+          resolve(tokens);
+        } catch (err) {
+          reject(err);
+        }
+      }
+    }, 500);
+
     async function onMessage(event) {
-      // Ignore messages from other origins
       if (event.origin !== window.location.origin) return;
-      // Ignore messages not from our popup
       if (!event.data?.spotify_code && !event.data?.spotify_error) return;
 
       clearTimeout(timeout);
+      clearInterval(pollTimer);
       window.removeEventListener('message', onMessage);
 
       if (event.data.spotify_error) {
@@ -62,13 +80,12 @@ export async function loginWithSpotify() {
         return;
       }
 
-      console.log('[FlowBeat] Got code, exchanging for token...');
+      console.log('[FlowBeat] Got code via postMessage, exchanging...');
       try {
         const tokens = await exchangeCodeForToken(event.data.spotify_code);
         console.log('[FlowBeat] Token exchange success ✓');
         resolve(tokens);
       } catch (err) {
-        console.error('[FlowBeat] Token exchange error:', err);
         reject(err);
       }
     }
