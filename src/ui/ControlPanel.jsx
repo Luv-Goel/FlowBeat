@@ -15,32 +15,30 @@ export default function ControlPanel() {
     initFile,
     initSystemAudio,
   } = useAudioEngine();
-  const { activeMode, setActiveMode, sensitivity, setSensitivity, debugMode, setDebugMode } = useAppContext();
+  const {
+    activeMode, setActiveMode,
+    sensitivity, setSensitivity,
+    smoothing, setSmoothness,
+    debugMode, setDebugMode,
+  } = useAppContext();
   const [features, setFeatures] = useState({});
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (isPlaying) {
-        setFeatures(audioEngine.getFeatures());
-      }
+      if (isPlaying) setFeatures(audioEngine.getFeatures());
     }, 100);
-
     return () => clearInterval(interval);
   }, [isPlaying]);
 
   useEffect(() => {
-    const onFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
   const handleFileChange = (e) => {
-    if (e.target.files.length > 0) {
-      initFile(e.target.files[0]);
-    }
+    if (e.target.files.length > 0) initFile(e.target.files[0]);
   };
 
   const toggleFullscreen = () => {
@@ -53,33 +51,43 @@ export default function ControlPanel() {
     }
   };
 
+  const handleSmoothness = (e) => {
+    const val = parseFloat(e.target.value);
+    setSmoothness(val);
+    audioEngine.smoothing = val;
+  };
+
   return (
     <div className="control-panel">
       <div className="control-header">
         <h1 className="logo">FlowBeat</h1>
         <div className="controls-group">
-          <button className="btn" onClick={initMic} title="Use Microphone">
+          <button className="btn" onClick={initMic} title="Use Microphone (M)">
             <Mic size={18} /> Mic
           </button>
 
-          <button className="btn" onClick={initSystemAudio} title="Capture System Audio (PC Output)">
+          <button className="btn" onClick={initSystemAudio} title="Capture System Audio">
             <Monitor size={18} /> System
           </button>
-          
-          <label className="btn" title="Upload Audio">
+
+          <label className="btn" title="Upload Audio File">
             <FileAudio size={18} /> File
             <input type="file" accept="audio/*" onChange={handleFileChange} style={{ display: 'none' }} />
           </label>
 
-          <button className={`btn btn-primary`} onClick={togglePlay}>
+          <button className="btn btn-primary" onClick={togglePlay} title="Play / Pause (Space)">
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
 
-          <button className="btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
+          <button className="btn" onClick={toggleFullscreen} title="Toggle Fullscreen (F)">
             {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
-          
-          <button className={`btn ${debugMode ? 'btn-active' : ''}`} onClick={() => setDebugMode(!debugMode)} title="Debug / Explain Visual">
+
+          <button
+            className={`btn ${debugMode ? 'btn-active' : ''}`}
+            onClick={() => setDebugMode(!debugMode)}
+            title="Debug / Explain Visual"
+          >
             <Code size={18} />
           </button>
         </div>
@@ -105,28 +113,36 @@ export default function ControlPanel() {
 
       <div className="control-bottom">
         <div className="mode-selector">
-          {Object.values(MODES).map((mode) => (
-            <button 
-              key={mode} 
+          {Object.values(MODES).map((mode, i) => (
+            <button
+              key={mode}
               className={`btn-mode ${activeMode === mode ? 'active' : ''}`}
               onClick={() => setActiveMode(mode)}
+              title={`Switch to ${mode} (${i + 1})`}
             >
               {mode}
             </button>
           ))}
         </div>
-        
+
         <div className="slider-group">
           <Settings2 size={16} />
-          <input 
-            type="range" 
-            min="0.1" 
-            max="3" 
-            step="0.1" 
-            value={sensitivity} 
-            onChange={(e) => setSensitivity(parseFloat(e.target.value))} 
+          <input
+            type="range" min="0.1" max="3" step="0.1"
+            value={sensitivity}
+            onChange={(e) => setSensitivity(parseFloat(e.target.value))}
           />
           <span>Sensitivity</span>
+        </div>
+
+        <div className="slider-group">
+          <Settings2 size={16} />
+          <input
+            type="range" min="0" max="0.95" step="0.05"
+            value={smoothing}
+            onChange={handleSmoothness}
+          />
+          <span>Smoothness</span>
         </div>
       </div>
 
@@ -135,26 +151,28 @@ export default function ControlPanel() {
           <h3>Explain This Visual</h3>
           <div className="metric">
             <span>Energy (RMS):</span>
-            <div className="bar"><div className="fill" style={{width: `${Math.min((features.energy || 0) * 100 * 5, 100)}%`}}></div></div>
+            <div className="bar"><div className="fill" style={{ width: `${Math.min((features.energy || 0) * 500, 100)}%` }}></div></div>
           </div>
           <div className="metric">
             <span>Brightness (Spectral):</span>
-            <div className="bar"><div className="fill" style={{width: `${Math.min((features.brightness || 0) * 100, 100)}%`}}></div></div>
+            <div className="bar"><div className="fill" style={{ width: `${Math.min((features.brightness || 0) * 100, 100)}%` }}></div></div>
           </div>
           <div className="metric">
             <span>Noisiness (ZCR):</span>
-            <div className="bar"><div className="fill" style={{width: `${Math.min((features.zcr || 0) / 255 * 100, 100)}%`}}></div></div>
+            <div className="bar"><div className="fill" style={{ width: `${Math.min((features.zcr || 0) / 255 * 100, 100)}%` }}></div></div>
           </div>
           <div className="metric">
             <span>Energy Delta:</span>
-            <div className="bar"><div className="fill" style={{width: `${Math.min((features.energyDelta || 0) * 100 * 20, 100)}%`, background: '#ff4444'}}></div></div>
+            <div className="bar"><div className="fill" style={{ width: `${Math.min((features.energyDelta || 0) * 2000, 100)}%`, background: '#ff4444' }}></div></div>
           </div>
-          
           <div className="interpretation">
             <strong>Interpretation: </strong>
             Energy is <strong>{features.energyTrend || 'steady'}</strong> &middot; {features.energy > 0.15 ? 'High intensity' : 'Mellow'}
             <br />
-            {(features.brightness > 0.5) ? 'Bright texture detected (high freq focus).' : 'Dark/Muffled texture detected.'}
+            {features.brightness > 0.5 ? 'Bright texture detected (high freq focus).' : 'Dark/Muffled texture detected.'}
+          </div>
+          <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.5 }}>
+            Shortcuts: Space = play · F = fullscreen · 1-4 = modes
           </div>
         </div>
       )}
