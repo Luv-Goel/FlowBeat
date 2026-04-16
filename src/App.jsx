@@ -4,10 +4,32 @@ import SceneManager from './visuals/SceneManager';
 import StudioScope from './visuals/modes/StudioScope';
 import ControlPanel from './ui/ControlPanel';
 import { audioEngine } from './audio/AudioEngine';
+import { exchangeCodeForToken } from './spotify/SpotifyAuth';
 
 function AppInner() {
-  const { activeMode, setActiveMode } = useAppContext();
+  const {
+    activeMode, setActiveMode,
+    setSpotifyToken, setSpotifyRefreshToken,
+    setAlbumColor,
+  } = useAppContext();
 
+  // Handle Spotify OAuth callback — exchange code for tokens then clean URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      exchangeCodeForToken(code)
+        .then((data) => {
+          setSpotifyToken(data.access_token);
+          if (data.refresh_token) setSpotifyRefreshToken(data.refresh_token);
+          setActiveMode(MODES.SPOTIFY);
+          window.history.replaceState({}, '', window.location.pathname);
+        })
+        .catch((err) => console.error('Spotify token exchange failed:', err));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Global keyboard shortcuts
   useEffect(() => {
     const toggleFullscreen = () => {
       if (!document.fullscreenElement) {
@@ -25,6 +47,7 @@ function AppInner() {
       if (e.key === '2') setActiveMode(MODES.NEON_RIFT);
       if (e.key === '3') setActiveMode(MODES.AURORA_INK);
       if (e.key === '4') setActiveMode(MODES.STUDIO_SCOPE);
+      if (e.key === '5') setActiveMode(MODES.SPOTIFY);
     };
 
     window.addEventListener('keydown', handler);

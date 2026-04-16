@@ -1,42 +1,32 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { Canvas } from '@react-three/fiber';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { useAppContext, MODES } from '../AppContext';
 import PulseGarden from './modes/PulseGarden';
 import NeonRift from './modes/NeonRift';
 import AuroraInk from './modes/AuroraInk';
+import SpotifyMode from './modes/SpotifyMode';
 
 export default function SceneManager() {
   const { activeMode } = useAppContext();
 
   return (
-    <div style={{ width: '100vw', height: '100dvh', background: '#000' }}>
-      <Canvas
-        camera={{ position: [0, 0, 10], fov: 60 }}
-        gl={{ alpha: false, antialias: false }}
-        dpr={[1, 1.5]}
-      >
-        <color attach="background" args={['#050505']} />
-        {/* Boosted lighting for meshStandardMaterial modes (NeonRift, AuroraInk) */}
-        <ambientLight intensity={1.2} />
-        <pointLight position={[0, 0, 8]} intensity={2} color="#ffffff" />
+    <Canvas
+      camera={{ position: [0, 0, 10], fov: 60 }}
+      dpr={Math.min(window.devicePixelRatio, 1.5)}
+      style={{ background: '#000' }}
+    >
+      <ambientLight intensity={1.2} />
+      <pointLight position={[10, 10, 10]} intensity={1.5} />
 
-        <Suspense fallback={null}>
-          <group visible={activeMode === MODES.PULSE_GARDEN}>
-            <PulseGarden />
-          </group>
-          <group visible={activeMode === MODES.NEON_RIFT}>
-            <NeonRift />
-          </group>
-          <group visible={activeMode === MODES.AURORA_INK}>
-            <AuroraInk />
-          </group>
-        </Suspense>
+      <PulseGarden  visible={activeMode === MODES.PULSE_GARDEN} />
+      <NeonRift     visible={activeMode === MODES.NEON_RIFT} />
+      <AuroraInk    visible={activeMode === MODES.AURORA_INK} />
+      <SpotifyMode  visible={activeMode === MODES.SPOTIFY} />
 
-        <EffectComposer>
-          <Bloom luminanceThreshold={0.1} luminanceSmoothing={0.9} height={300} />
-        </EffectComposer>
-      </Canvas>
-    </div>
+      <EffectComposer>
+        <Bloom luminanceThreshold={0.2} luminanceSmoothing={0.9} intensity={1.2} />
+      </EffectComposer>
+    </Canvas>
   );
 }

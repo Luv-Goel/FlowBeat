@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Pause, Mic, Monitor, Settings2, Code, FileAudio, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Pause, Mic, Monitor, Settings2, Code, FileAudio, Maximize2, Minimize2, Music } from 'lucide-react';
 import { useAudioEngine } from '../audio/useAudioEngine';
 import { useAppContext, MODES } from '../AppContext';
 import { audioEngine } from '../audio/AudioEngine';
+import { loginWithSpotify } from '../spotify/SpotifyAuth';
+import { useSpotifyNowPlaying } from '../spotify/useSpotifyNowPlaying';
 
 export default function ControlPanel() {
   const {
@@ -20,11 +22,27 @@ export default function ControlPanel() {
     sensitivity, setSensitivity,
     smoothing, setSmoothness,
     debugMode, setDebugMode,
+    spotifyToken, setSpotifyToken,
+    spotifyRefreshToken,
+    setAlbumColor,
   } = useAppContext();
+
   const [features, setFeatures] = useState({});
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Sync context smoothing value → engine on mount
+  // Poll Spotify now-playing when we have a token
+  const { track, albumColor: liveAlbumColor, error: spotifyError } = useSpotifyNowPlaying(
+    spotifyToken,
+    spotifyRefreshToken,
+    (newToken) => setSpotifyToken(newToken),
+  );
+
+  // Propagate album colour into context so SpotifyMode can read it
+  useEffect(() => {
+    if (liveAlbumColor) setAlbumColor(liveAlbumColor);
+  }, [liveAlbumColor, setAlbumColor]);
+
+  // Sync smoothing to engine on mount
   useEffect(() => {
     audioEngine.smoothing = smoothing;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -80,6 +98,15 @@ export default function ControlPanel() {
             <input type="file" accept="audio/*" onChange={handleFileChange} style={{ display: 'none' }} />
           </label>
 
+          <button
+            className={`btn ${spotifyToken ? 'btn-active' : ''}`}
+            onClick={spotifyToken ? () => setActiveMode(MODES.SPOTIFY) : loginWithSpotify}
+            title={spotifyToken ? 'Switch to Spotify Mode' : 'Connect Spotify'}
+            style={{ color: spotifyToken ? '#1DB954' : undefined }}
+          >
+            <Music size={18} /> {spotifyToken ? 'Spotify' : 'Connect'}
+          </button>
+
           <button className="btn btn-primary" onClick={togglePlay} title="Play / Pause (Space)">
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
@@ -98,21 +125,50 @@ export default function ControlPanel() {
         </div>
       </div>
 
+      {/* Banners */}
       {micDenied && (
         <div className="mic-denied-banner">
           🎙️ Mic access denied. Please use <strong>File upload</strong> instead.
         </div>
       )}
-
       {systemAudioUnsupported && (
         <div className="mic-denied-banner" style={{ top: micDenied ? '126px' : '80px' }}>
           ⚠️ Use <strong>Chrome or Edge</strong> for System Audio capture.
         </div>
       )}
-
       {!systemAudioUnsupported && systemAudioHelp && (
         <div className="mic-denied-banner" style={{ top: micDenied ? '126px' : '80px' }}>
           🔊 {systemAudioHelp}
+        </div>
+      )}
+      {spotifyError && (
+        <div className="mic-denied-banner">
+          🎵 {spotifyError}
+        </div>
+      )}
+
+      {/* Now Playing strip — visible only in Spotify mode */}
+      {activeMode === MODES.SPOTIFY && spotifyToken && (
+        <div className="now-playing-strip">
+          {track ? (
+            <>
+              {track.album?.images?.[2]?.url && (
+                <img
+                  src={track.album.images[2].url}
+                  alt="Album art"
+                  width={36}
+                  height={36}
+                  style={{ borderRadius: '4px', flexShrink: 0 }}
+                />
+              )}
+              <div className="now-playing-text">
+                <span className="now-playing-title">{track.name}</span>
+                <span className="now-playing-artist">{track.artists?.map((a) => a.name).join(', ')}</span>
+              </div>
+            </>
+          ) : (
+            <span style={{ opacity: 0.5 }}>🎵 Nothing playing on Spotify…</span>
+          )}
         </div>
       )}
 
@@ -177,7 +233,7 @@ export default function ControlPanel() {
             {features.brightness > 0.5 ? 'Bright texture detected (high freq focus).' : 'Dark/Muffled texture detected.'}
           </div>
           <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.5 }}>
-            Shortcuts: Space = play · F = fullscreen · 1–4 = modes
+            Shortcuts: Space = play · F = fullscreen · 1–5 = modes
           </div>
         </div>
       )}
