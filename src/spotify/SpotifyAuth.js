@@ -1,5 +1,8 @@
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:5173/callback';
+// Use the root URL — Vite serves index.html at / so React boots
+// and the ?code= param is handled immediately by App.jsx.
+// IMPORTANT: Register exactly http://127.0.0.1:5173/ in your Spotify app dashboard.
+const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:5173/';
 const SCOPES = 'user-read-playback-state user-read-currently-playing';
 
 async function generateCodeVerifier() {
@@ -58,7 +61,7 @@ export async function exchangeCodeForToken(code) {
     throw new Error(err.error_description || 'Token exchange failed');
   }
 
-  return res.json(); // { access_token, refresh_token, expires_in, token_type }
+  return res.json();
 }
 
 export async function refreshAccessToken(refreshToken) {
