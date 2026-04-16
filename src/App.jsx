@@ -6,7 +6,7 @@ import ControlPanel from './ui/ControlPanel';
 import { audioEngine } from './audio/AudioEngine';
 
 function AppInner() {
-  const { activeMode, setActiveMode, sensitivity } = useAppContext();
+  const { activeMode, setActiveMode } = useAppContext();
 
   useEffect(() => {
     const toggleFullscreen = () => {
@@ -35,18 +35,7 @@ function AppInner() {
     <div className="flowbeat-app">
       <div className="canvas-container">
         <SceneManager />
-        {activeMode === MODES.STUDIO_SCOPE && (
-          <StudioScope
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
+        {activeMode === MODES.STUDIO_SCOPE && <StudioScope />}
       </div>
       <ControlPanel />
     </div>

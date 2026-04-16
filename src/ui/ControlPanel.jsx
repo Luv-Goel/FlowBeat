@@ -24,6 +24,11 @@ export default function ControlPanel() {
   const [features, setFeatures] = useState({});
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Sync context smoothing value → engine on mount
+  useEffect(() => {
+    audioEngine.smoothing = smoothing;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (isPlaying) setFeatures(audioEngine.getFeatures());
@@ -62,7 +67,7 @@ export default function ControlPanel() {
       <div className="control-header">
         <h1 className="logo">FlowBeat</h1>
         <div className="controls-group">
-          <button className="btn" onClick={initMic} title="Use Microphone (M)">
+          <button className="btn" onClick={initMic} title="Use Microphone">
             <Mic size={18} /> Mic
           </button>
 
@@ -172,7 +177,7 @@ export default function ControlPanel() {
             {features.brightness > 0.5 ? 'Bright texture detected (high freq focus).' : 'Dark/Muffled texture detected.'}
           </div>
           <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.5 }}>
-            Shortcuts: Space = play · F = fullscreen · 1-4 = modes
+            Shortcuts: Space = play · F = fullscreen · 1–4 = modes
           </div>
         </div>
       )}
