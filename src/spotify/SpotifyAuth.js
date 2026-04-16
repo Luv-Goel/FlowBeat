@@ -34,53 +34,44 @@ export async function loginWithSpotify() {
     code_challenge: challenge,
   });
 
-  console.log('[FlowBeat] Opening Spotify auth popup, redirect_uri:', REDIRECT_URI);
-  const url = `https://accounts.spotify.com/authorize?${params}`;
-  const popup = window.open(url, 'spotify_auth', 'width=500,height=700,left=400,top=100');
+  console.log('[FlowBeat] Opening Spotify popup, redirect_uri:', REDIRECT_URI);
+  window.open(
+    `https://accounts.spotify.com/authorize?${params}`,
+    'spotify_auth',
+    'width=500,height=700,left=400,top=100'
+  );
 
   return new Promise((resolve, reject) => {
-    let settled = false;
+    // Absolute timeout: if no message arrives in 2 minutes, give up
+    const timeout = setTimeout(() => {
+      window.removeEventListener('message', onMessage);
+      reject(new Error('Spotify auth timed out. Please try again.'));
+    }, 120_000);
 
-    // Poll for popup closed — but give a 1.5s grace window after
-    // window.close() is called, so the postMessage always wins the race.
-    const timer = setInterval(() => {
-      if (popup && popup.closed && !settled) {
-        // Wait 1.5s before rejecting, in case postMessage is still in flight
-        setTimeout(() => {
-          if (!settled) {
-            settled = true;
-            clearInterval(timer);
-            reject(new Error('Spotify auth popup was closed.'));
-          }
-        }, 1500);
-        clearInterval(timer); // stop polling once we detect close
-      }
-    }, 500);
-
-    const onMessage = async (event) => {
+    async function onMessage(event) {
+      // Ignore messages from other origins
       if (event.origin !== window.location.origin) return;
+      // Ignore messages not from our popup
       if (!event.data?.spotify_code && !event.data?.spotify_error) return;
 
-      // Message received — settle immediately, cancel the closed-rejection
-      settled = true;
-      clearInterval(timer);
+      clearTimeout(timeout);
       window.removeEventListener('message', onMessage);
 
       if (event.data.spotify_error) {
-        reject(new Error(`Spotify denied access: ${event.data.spotify_error}`));
+        reject(new Error(`Spotify denied: ${event.data.spotify_error}`));
         return;
       }
 
-      console.log('[FlowBeat] Got auth code from popup, exchanging for token...');
+      console.log('[FlowBeat] Got code, exchanging for token...');
       try {
         const tokens = await exchangeCodeForToken(event.data.spotify_code);
-        console.log('[FlowBeat] Token exchange success!');
+        console.log('[FlowBeat] Token exchange success ✓');
         resolve(tokens);
       } catch (err) {
-        console.error('[FlowBeat] Token exchange failed:', err);
+        console.error('[FlowBeat] Token exchange error:', err);
         reject(err);
       }
-    };
+    }
 
     window.addEventListener('message', onMessage);
   });
