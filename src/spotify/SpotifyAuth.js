@@ -1,7 +1,10 @@
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-// The popup lands on this URI — must be registered in Spotify dashboard
-// Use http://127.0.0.1:5173/ (root, with trailing slash)
-const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:5173/';
+
+// Hardcoded to avoid any .env loading issues.
+// Must exactly match what is in your Spotify dashboard Redirect URIs.
+// Currently registered as: http://127.0.0.1:5173/
+const REDIRECT_URI = 'http://127.0.0.1:5173/';
+
 const SCOPES = 'user-read-playback-state user-read-currently-playing';
 
 async function generateCodeVerifier() {
@@ -22,13 +25,6 @@ async function generateCodeChallenge(verifier) {
     .replace(/=/g, '');
 }
 
-/**
- * Opens the Spotify auth page in a small popup.
- * The popup lands back on REDIRECT_URI with ?code=...
- * index.html detects it's a popup (window.opener exists) and
- * postMessages the code back to the main window, then closes.
- * Main tab never navigates away — dev server stays connected.
- */
 export async function loginWithSpotify() {
   const verifier = await generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
@@ -43,6 +39,10 @@ export async function loginWithSpotify() {
     code_challenge: challenge,
   });
 
+  // Debug: confirm exactly what is being sent
+  console.log('[FlowBeat] Spotify auth — client_id:', CLIENT_ID);
+  console.log('[FlowBeat] Spotify auth — redirect_uri being sent:', REDIRECT_URI);
+
   const url = `https://accounts.spotify.com/authorize?${params}`;
   const popup = window.open(url, 'spotify_auth', 'width=500,height=700,left=400,top=100');
 
@@ -50,12 +50,11 @@ export async function loginWithSpotify() {
     const timer = setInterval(() => {
       if (popup && popup.closed) {
         clearInterval(timer);
-        reject(new Error('Spotify auth popup was closed by the user.'));
+        reject(new Error('Spotify auth popup was closed.'));
       }
     }, 500);
 
     const onMessage = async (event) => {
-      // Only accept messages from our own origin
       if (event.origin !== window.location.origin) return;
       if (!event.data?.spotify_code) return;
 
