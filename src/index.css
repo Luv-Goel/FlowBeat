@@ -1,4 +1,4 @@
-/* ─── Reset & base ─────────────────────────────────────────────────── */
+/* ─── Reset & base ─────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -8,7 +8,7 @@ body {
   overflow: hidden;
 }
 
-/* ─── App shell ────────────────────────────────────────────────────── */
+/* ─── App shell ──────────────────────────────────────────────────────────── */
 .flowbeat-app {
   display: flex;
   flex-direction: column;
@@ -22,7 +22,7 @@ body {
   overflow: hidden;
 }
 
-/* ─── Control panel ────────────────────────────────────────────────── */
+/* ─── Control panel ──────────────────────────────────────────────────────── */
 .control-panel {
   position: relative;
   background: rgba(0, 0, 0, 0.75);
@@ -60,7 +60,7 @@ body {
   flex-wrap: wrap;
 }
 
-/* ─── Buttons ──────────────────────────────────────────────────────── */
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -78,7 +78,7 @@ body {
 }
 .btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
 .btn:active { background: rgba(255,255,255,0.18); }
-.btn:disabled { cursor: not-allowed; }
+.btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .btn-primary {
   background: rgba(99,102,241,0.35);
@@ -91,7 +91,17 @@ body {
   border-color: rgba(99,102,241,0.65);
 }
 
-/* ─── Mode selector ────────────────────────────────────────────────── */
+.btn-recording {
+  background: rgba(220,38,38,0.35);
+  border-color: rgba(220,38,38,0.6);
+  animation: pulse-rec 1s ease-in-out infinite;
+}
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ─── Mode selector ──────────────────────────────────────────────────────── */
 .control-bottom {
   display: flex;
   align-items: center;
@@ -123,7 +133,29 @@ body {
   color: #fff;
 }
 
-/* ─── Sliders ──────────────────────────────────────────────────────── */
+/* ─── Color theme swatches ───────────────────────────────────────────────── */
+.theme-swatches {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.swatch:hover { transform: scale(1.2); }
+.swatch-active {
+  border-color: #fff;
+  transform: scale(1.15);
+}
+
+/* ─── Sliders ────────────────────────────────────────────────────────────── */
 .slider-group {
   display: flex;
   align-items: center;
@@ -132,12 +164,35 @@ body {
   font-size: 12px;
 }
 .slider-group input[type=range] {
-  width: 90px;
+  width: 80px;
   accent-color: #818cf8;
   cursor: pointer;
 }
 
-/* ─── Toast ─────────────────────────────────────────────────────────── */
+/* ─── Seek / progress bar ────────────────────────────────────────────────── */
+.seek-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.seek-slider {
+  flex: 1;
+  height: 3px;
+  accent-color: #818cf8;
+  cursor: pointer;
+}
+
+.seek-time {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+}
+.seek-time:last-child { text-align: right; }
+
+/* ─── Toast ──────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;
   top: 24px;
@@ -153,13 +208,12 @@ body {
   backdrop-filter: blur(8px);
   animation: toastIn 0.2s ease-out;
 }
-
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-/* ─── Banners ──────────────────────────────────────────────────────── */
+/* ─── Banners ────────────────────────────────────────────────────────────── */
 .mic-denied-banner {
   position: absolute;
   top: 80px;
@@ -175,7 +229,7 @@ body {
   pointer-events: none;
 }
 
-/* ─── Spotify Now Playing strip ────────────────────────────────────── */
+/* ─── Spotify Now Playing strip ──────────────────────────────────────────── */
 .now-playing-strip {
   display: flex;
   align-items: center;
@@ -210,7 +264,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* ─── Inspector panel ──────────────────────────────────────────────── */
+/* ─── Inspector panel ────────────────────────────────────────────────────── */
 .inspector-panel {
   background: rgba(0,0,0,0.6);
   border: 1px solid rgba(255,255,255,0.08);
@@ -237,7 +291,7 @@ body {
   color: rgba(255,255,255,0.65);
 }
 
-.metric span { width: 150px; flex-shrink: 0; }
+.metric span { width: 130px; flex-shrink: 0; }
 
 .bar {
   flex: 1;

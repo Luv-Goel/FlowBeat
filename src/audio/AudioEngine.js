@@ -1,237 +1,173 @@
-import Meyda from 'meyda';
-
 class AudioEngine {
   constructor() {
     this.audioContext = null;
+    this.analyser = null;
     this.source = null;
     this.audioElement = null;
-    this.analyzer = null;
-    this.micGain = null;
-    this.systemAudioStream = null;
-    
-    // Smoothing factor for features
+    this.isPlaying = false;
     this.smoothing = 0.8;
-    
-    // Current raw features
+    this.sensitivity = 1.0;
+
+    this.dataArray = null;
+    this.bufferLength = 0;
+
     this.currentFeatures = {
-      rms: 0,
-      spectralCentroid: 0,
-      zcr: 0,
       energy: 0,
       brightness: 0,
+      zcr: 0,
       energyDelta: 0,
       energyTrend: 'steady',
     };
 
-    // Buffered history for trend detection
     this.history = {
-      rms: new Array(100).fill(0),
-      energy: new Array(100).fill(0),
-      spectralCentroid: new Array(100).fill(0),
+      energy: [],
     };
 
-    this.isPlaying = false;
-    this.onStateChange = null;
+    this._lastEnergy = 0;
+    this._animFrame = null;
   }
 
-  initContext() {
+  async _initContext() {
     if (!this.audioContext) {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (this.audioContext.state === 'suspended') {
-      this.audioContext.resume();
+      await this.audioContext.resume();
+    }
+    if (!this.analyser) {
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 2048;
+      this.analyser.smoothingTimeConstant = this.smoothing;
+      this.analyser.connect(this.audioContext.destination);
+      this.bufferLength = this.analyser.frequencyBinCount;
+      this.dataArray = new Uint8Array(this.bufferLength);
     }
   }
 
   async initMic() {
-    this.initContext();
-    this.cleanup();
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          autoGainControl: false,
-          noiseSuppression: false,
-          latency: 0
-        }
-      });
-      
-      await this.audioContext.resume();
-      this.source = this.audioContext.createMediaStreamSource(stream);
-      
-      this.micGain = this.audioContext.createGain();
-      this.micGain.gain.value = 0;
-      this.source.connect(this.micGain);
-      this.micGain.connect(this.audioContext.destination);
-
-      this.setupMeyda();
-      this.isPlaying = true;
-      this.notifyState();
-    } catch (err) {
-      console.error('Mic access denied:', err);
-      throw err;
-    }
-  }
-
-  async initSystemAudio() {
-    this.initContext();
-    this.cleanup();
-
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          sampleRate: 44100,
-        }
-      });
-
-      stream.getVideoTracks().forEach((t) => t.stop());
-
-      const audioTracks = stream.getAudioTracks();
-      if (audioTracks.length === 0) {
-        throw new Error('NO_AUDIO: User did not share audio. Tell them to check "Share audio".');
-      }
-
-      await this.audioContext.resume();
-      this.systemAudioStream = stream;
-      this.source = this.audioContext.createMediaStreamSource(stream);
-      this.setupMeyda();
-      this.isPlaying = true;
-      this.notifyState();
-    } catch (err) {
-      console.error('System audio capture failed:', err);
-      throw err;
-    }
-  }
-
-  async initFile(fileUrl) {
-    this.initContext();
-    this.cleanup();
-
-    this.audioElement = new Audio(fileUrl);
-    this.audioElement.crossOrigin = 'anonymous';
-    this.audioElement.loop = true;
-    
-    this.source = this.audioContext.createMediaElementSource(this.audioElement);
-    this.source.connect(this.audioContext.destination);
-
-    await this.audioContext.resume();
-    this.audioElement.play();
-    this.setupMeyda();
+    await this._initContext();
+    if (this.source) this.source.disconnect();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.source = this.audioContext.createMediaStreamSource(stream);
+    this.source.connect(this.analyser);
     this.isPlaying = true;
-    this.notifyState();
+    this._loop();
   }
 
-  setupMeyda() {
-    if (!this.source || !this.audioContext) return;
-
-    this.analyzer = Meyda.createMeydaAnalyzer({
-      audioContext: this.audioContext,
-      source: this.source,
-      bufferSize: 1024,
-      featureExtractors: ['rms', 'spectralCentroid', 'zcr'],
-      callback: (features) => {
-        this.processFeatures(features);
-      }
-    });
-    this.analyzer.start();
-  }
-
-  processFeatures(features) {
-    if (!features) return;
-
-    this.currentFeatures.rms = this.lerp(this.currentFeatures.rms, features.rms, 1 - this.smoothing);
-    this.currentFeatures.spectralCentroid = this.lerp(this.currentFeatures.spectralCentroid, features.spectralCentroid || 0, 1 - this.smoothing);
-    this.currentFeatures.zcr = this.lerp(this.currentFeatures.zcr, features.zcr, 1 - this.smoothing);
-    this.currentFeatures.energy = this.currentFeatures.rms;
-
-    const maxCentroid = Math.max(...this.history.spectralCentroid) || 1;
-    this.currentFeatures.brightness = this.currentFeatures.spectralCentroid / maxCentroid;
-
-    const recentAvg = this.history.energy.slice(-10).reduce((a, b) => a + b, 0) / 10 || 0;
-    this.currentFeatures.energyDelta = Math.max(0, this.currentFeatures.energy - recentAvg);
-
-    this.history.rms.shift();
-    this.history.rms.push(this.currentFeatures.rms);
-    this.history.energy.shift();
-    this.history.energy.push(this.currentFeatures.energy);
-    this.history.spectralCentroid.shift();
-    this.history.spectralCentroid.push(this.currentFeatures.spectralCentroid);
-
-    const recentEnergy = this.history.energy.slice(-30);
-    const first = recentEnergy.slice(0, 15).reduce((a, b) => a + b, 0) / 15;
-    const last = recentEnergy.slice(15).reduce((a, b) => a + b, 0) / 15;
-    this.currentFeatures.energyTrend = last > first * 1.15 ? 'rising' : last < first * 0.85 ? 'falling' : 'steady';
-  }
-
-  lerp(start, end, amt) {
-    return (1 - amt) * start + amt * end;
-  }
-
-  getFeatures() {
-    return this.currentFeatures;
-  }
-
-  getHistory() {
-    return this.history;
-  }
-
-  togglePlay() {
-    if (this.audioElement) {
-      if (this.isPlaying) {
-        this.audioElement.pause();
-        this.analyzer?.stop();
-        this.isPlaying = false;
-      } else {
-        this.audioElement.play();
-        this.analyzer?.start();
-        this.isPlaying = true;
-      }
-      this.notifyState();
-    } else if (this.source && this.source.mediaStream) {
-      if (this.isPlaying) {
-        this.analyzer?.stop();
-        this.isPlaying = false;
-      } else {
-        this.initContext();
-        this.analyzer?.start();
-        this.isPlaying = true;
-      }
-      this.notifyState();
-    }
-  }
-
-  cleanup() {
-    if (this.analyzer) {
-      this.analyzer.stop();
-      this.analyzer = null;
-    }
+  async initFile(file) {
+    await this._initContext();
+    if (this.source) this.source.disconnect();
     if (this.audioElement) {
       this.audioElement.pause();
       this.audioElement.src = '';
-      this.audioElement = null;
     }
-    if (this.source) {
-      this.source.disconnect();
-      this.source = null;
-    }
-    if (this.micGain) {
-      this.micGain.disconnect();
-      this.micGain = null;
-    }
-    if (this.systemAudioStream) {
-      this.systemAudioStream.getTracks().forEach((track) => track.stop());
-      this.systemAudioStream = null;
-    }
-    this.isPlaying = false;
+    const url = URL.createObjectURL(file);
+    this.audioElement = new Audio(url);
+    this.audioElement.crossOrigin = 'anonymous';
+    await this.audioContext.resume();
+    this.source = this.audioContext.createMediaElementSource(this.audioElement);
+    this.source.connect(this.analyser);
+    await this.audioElement.play();
+    this.isPlaying = true;
+    this._loop();
   }
 
-  notifyState() {
-    if (this.onStateChange) {
-      this.onStateChange({ isPlaying: this.isPlaying });
+  async initSystemAudio() {
+    await this._initContext();
+    if (this.source) this.source.disconnect();
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true,
+    });
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) throw new Error('No audio track in screen capture.');
+    const audioStream = new MediaStream(audioTracks);
+    this.source = this.audioContext.createMediaStreamSource(audioStream);
+    this.source.connect(this.analyser);
+    this.isPlaying = true;
+    this._loop();
+  }
+
+  togglePlay() {
+    if (!this.audioElement) return;
+    if (this.audioElement.paused) {
+      this.audioElement.play();
+      this.isPlaying = true;
+      this._loop();
+    } else {
+      this.audioElement.pause();
+      this.isPlaying = false;
+      cancelAnimationFrame(this._animFrame);
+    }
+  }
+
+  _loop() {
+    this._animFrame = requestAnimationFrame(() => this._loop());
+    this.processFeatures();
+  }
+
+  processFeatures() {
+    if (!this.analyser) return;
+    this.analyser.smoothingTimeConstant = this.smoothing;
+    this.analyser.getByteFrequencyData(this.dataArray);
+
+    // RMS energy
+    let sum = 0;
+    for (let i = 0; i < this.bufferLength; i++) sum += (this.dataArray[i] / 255) ** 2;
+    const rms = Math.sqrt(sum / this.bufferLength) * this.sensitivity;
+
+    // Spectral centroid (brightness)
+    let weightedSum = 0, totalAmp = 0;
+    for (let i = 0; i < this.bufferLength; i++) {
+      weightedSum += i * this.dataArray[i];
+      totalAmp += this.dataArray[i];
+    }
+    const centroid = totalAmp > 0 ? weightedSum / totalAmp / this.bufferLength : 0;
+
+    // Zero-crossing rate
+    this.analyser.getByteTimeDomainData(this.dataArray);
+    let zcr = 0;
+    for (let i = 1; i < this.bufferLength; i++) {
+      if ((this.dataArray[i - 1] - 128) * (this.dataArray[i] - 128) < 0) zcr++;
+    }
+
+    const energyDelta = rms - this._lastEnergy;
+    this._lastEnergy = rms;
+
+    this.history.energy.push(rms);
+    if (this.history.energy.length > 60) this.history.energy.shift();
+
+    // Energy trend label
+    if (this.history.energy.length >= 30) {
+      const recent = this.history.energy.slice(-30);
+      const first = recent.slice(0, 15).reduce((a, b) => a + b, 0) / 15;
+      const last  = recent.slice(15).reduce((a, b) => a + b, 0) / 15;
+      this.currentFeatures.energyTrend =
+        last > first * 1.15 ? 'rising' :
+        last < first * 0.85 ? 'falling' : 'steady';
+    }
+
+    this.currentFeatures.energy      = rms;
+    this.currentFeatures.brightness  = centroid;
+    this.currentFeatures.zcr         = zcr;
+    this.currentFeatures.energyDelta = energyDelta;
+  }
+
+  getFeatures() {
+    return { ...this.currentFeatures };
+  }
+
+  // File seek / progress
+  getProgress() {
+    if (!this.audioElement) return { current: 0, duration: 0, percent: 0 };
+    const current  = this.audioElement.currentTime;
+    const duration = this.audioElement.duration || 0;
+    return { current, duration, percent: duration ? (current / duration) * 100 : 0 };
+  }
+
+  seek(percent) {
+    if (this.audioElement && this.audioElement.duration) {
+      this.audioElement.currentTime = (percent / 100) * this.audioElement.duration;
     }
   }
 }

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { AppProvider, MODES, useAppContext } from './AppContext';
 import SceneManager from './visuals/SceneManager';
 import StudioScope from './visuals/modes/StudioScope';
@@ -7,6 +7,11 @@ import { audioEngine } from './audio/AudioEngine';
 
 function AppInner() {
   const { setActiveMode } = useAppContext();
+  const canvasRef = useRef(null);
+
+  const handleCanvasReady = useCallback((canvas) => {
+    canvasRef.current = canvas;
+  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -38,10 +43,10 @@ function AppInner() {
   return (
     <div className="flowbeat-app">
       <div className="canvas-container">
-        <SceneManager />
+        <SceneManager onCanvasReady={handleCanvasReady} />
         {activeMode === MODES.STUDIO_SCOPE && <StudioScope />}
       </div>
-      <ControlPanel />
+      <ControlPanel canvasRef={canvasRef} />
     </div>
   );
 }
