@@ -54,7 +54,17 @@ class AudioEngine {
           latency: 0
         }
       });
+      
+      await this.audioContext.resume();
       this.source = this.audioContext.createMediaStreamSource(stream);
+      
+      // Fix for Webkit/Chrome: The audio graph must reach the destination
+      // for the analyzer to pull data, but we must mute it to prevent feedback.
+      this.micGain = this.audioContext.createGain();
+      this.micGain.gain.value = 0;
+      this.source.connect(this.micGain);
+      this.micGain.connect(this.audioContext.destination);
+
       this.setupMeyda();
       this.isPlaying = true;
       this.notifyState();
@@ -179,6 +189,10 @@ class AudioEngine {
     if (this.source) {
       this.source.disconnect();
       this.source = null;
+    }
+    if (this.micGain) {
+      this.micGain.disconnect();
+      this.micGain = null;
     }
     this.isPlaying = false;
   }
