@@ -5,7 +5,7 @@ import { useAppContext, MODES } from '../AppContext';
 import { audioEngine } from '../audio/AudioEngine';
 
 export default function ControlPanel() {
-  const { isPlaying, togglePlay, initMic, initFile } = useAudioEngine();
+  const { isPlaying, micDenied, togglePlay, initMic, initFile } = useAudioEngine();
   const { activeMode, setActiveMode, sensitivity, setSensitivity, debugMode, setDebugMode } = useAppContext();
   const [features, setFeatures] = useState({});
 
@@ -50,6 +50,12 @@ export default function ControlPanel() {
           </button>
         </div>
       </div>
+
+      {micDenied && (
+        <div className="mic-denied-banner">
+          🎙️ Mic access denied. Please use <strong>File upload</strong> instead.
+        </div>
+      )}
 
       {/* Mode Selector & Sensitivity */}
       <div className="control-bottom">

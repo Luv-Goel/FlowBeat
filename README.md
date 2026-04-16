@@ -1,16 +1,39 @@
-# React + Vite
+# FlowBeat: AI-Powered Music Intelligence Canvas
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+FlowBeat is a lean, privacy-first, browser-based music visualizer. It transforms your live local context (microphone or MP3) into an evolving visual performance via real-time logic.
 
-Currently, two official plugins are available:
+Rather than just moving a spectrum bar to kicks and snares, FlowBeat interprets tracking energy thresholds (RMS), brightness traits (Spectral Centroid), string-pluck densities (ZCR), and drop detection thresholds directly from the local browser environment without uploading any assets to cloud servers.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Core Features
+1. **Zero Latency**: Powered by the native Web Audio API mapped straight to your local graphics hardware.
+2. **Browser-Native Intelligence**: Extracts complex real-time metrics with Meyda directly within an internal React context map, without utilizing heavy React re-renders.
+3. **Three Signature Visual Modes**:
+   - 🌿 **Pulse Garden**: Slow fluid geometry pulsing gently for ambient aesthetics.
+   - ⚡ **Neon Rift**: High contrast geometry, color-flashes, and multi-axis drop detection specifically tuned for EDM/Trap.
+   - 🌌 **Aurora Ink**: Shimmering ambient clouds adjusting hue on brightness frequencies.
+4. **Offline and 100% Free**: No dependencies on paid APIs or external inference endpoints.
+5. **Transparency**: The "Debug / Explain Visual" capability exposes real-time analyzer readings to easily convey exactly what algorithms are executing behind the scenes.
 
-## React Compiler
+## Technology Stack
+- **Frontend Framework**: React 18 & Vite
+- **Visual Rendering**: Three.js, React-Three-Fiber, React-Three-Postprocessing
+- **Audio Extraction**: Web Audio API & Meyda
+- **Interface**: Lucide Icons & handcrafted Vanilla CSS (Glassmorphism & Neon themes)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Installation & Running Locally
+Since FlowBeat runs 100% on the frontend, standard Node initialization is all that is required.
+```bash
+# 1. Clone the repository
+git clone https://github.com/Luv-Goel/FlowBeat.git
 
-## Expanding the ESLint configuration
+# 2. Enter the directory
+cd FlowBeat
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+# 3. Install NPM Core Dependencies
+npm install
+
+# 4. Start the interactive Vite Developer Server
+npm run dev
+```
+
+Visit the outputted URL (normally `http://localhost:5173`) and enjoy FlowBeat!

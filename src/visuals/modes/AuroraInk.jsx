@@ -7,33 +7,35 @@ import * as THREE from 'three';
 export default function AuroraInk() {
   const meshRef = useRef();
   const materialRef = useRef();
+  const targetScale = useRef(new THREE.Vector3(1, 1, 1)); // Fix: persistent ref
   const { sensitivity } = useAppContext();
 
   useFrame((state, delta) => {
     const features = audioEngine.getFeatures();
-    
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * 0.1;
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5) * 0.5;
-      
-      const scale = 1 + (features.rms * sensitivity * 5);
-      meshRef.current.scale.lerp(new THREE.Vector3(scale, scale * 1.5, scale), 0.05);
-    }
+    if (!meshRef.current) return;
+
+    meshRef.current.rotation.y += delta * 0.12;
+    meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.4) * 0.4;
+
+    const scale = 1 + features.rms * sensitivity * 4;
+    targetScale.current.set(scale, scale * 1.4, scale); // Fix: reuse same object
+    meshRef.current.scale.lerp(targetScale.current, 0.05);
 
     if (materialRef.current) {
-      // Modulate color by spectral centroid
-      const hue = 0.6 + (features.spectralCentroid / 2000) * 0.3; // Blue/Purple range
-      materialRef.current.color.setHSL(hue, 1, 0.6);
+      // Use normalized brightness (already dynamic in AudioEngine)
+      const hue = 0.58 + features.brightness * 0.25;
+      materialRef.current.color.setHSL(hue, 1, 0.55);
+      materialRef.current.emissiveIntensity = 0.4 + features.energy * sensitivity * 3;
     }
   });
 
   return (
     <mesh ref={meshRef}>
       <sphereGeometry args={[3, 64, 64]} />
-      <meshStandardMaterial 
+      <meshStandardMaterial
         ref={materialRef}
         color="#aa00ff"
-        wireframe={true}
+        wireframe
         emissive="#5500aa"
         emissiveIntensity={0.8}
         roughness={0.2}

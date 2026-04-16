@@ -15,14 +15,16 @@ class AudioEngine {
       rms: 0,
       spectralCentroid: 0,
       zcr: 0,
-      energy: 0, // derived smoothed rms
-      brightness: 0, // derived smoothed spectralCentroid
+      energy: 0,
+      brightness: 0,
+      energyDelta: 0,  // NEW
     };
 
     // Buffered history for trend detection
     this.history = {
       rms: new Array(100).fill(0),
-      energy: new Array(100).fill(0)
+      energy: new Array(100).fill(0),
+      spectralCentroid: new Array(100).fill(0),  // NEW
     };
 
     this.isPlaying = false;
@@ -61,7 +63,7 @@ class AudioEngine {
     }
   }
 
-  initFile(fileUrl) {
+  async initFile(fileUrl) {
     this.initContext();
     this.cleanup();
 
@@ -72,6 +74,7 @@ class AudioEngine {
     this.source = this.audioContext.createMediaElementSource(this.audioElement);
     this.source.connect(this.audioContext.destination);
 
+    await this.audioContext.resume();
     this.audioElement.play();
     this.setupMeyda();
     this.isPlaying = true;
@@ -85,7 +88,7 @@ class AudioEngine {
       audioContext: this.audioContext,
       source: this.source,
       bufferSize: 1024,
-      featureExtractors: ['rms', 'spectralCentroid', 'zcr', 'energy'],
+      featureExtractors: ['rms', 'spectralCentroid', 'zcr'],
       callback: (features) => {
         this.processFeatures(features);
       }
@@ -96,19 +99,26 @@ class AudioEngine {
   processFeatures(features) {
     if (!features) return;
 
-    // Smooth features to prevent jitter
     this.currentFeatures.rms = this.lerp(this.currentFeatures.rms, features.rms, 1 - this.smoothing);
     this.currentFeatures.spectralCentroid = this.lerp(this.currentFeatures.spectralCentroid, features.spectralCentroid || 0, 1 - this.smoothing);
     this.currentFeatures.zcr = this.lerp(this.currentFeatures.zcr, features.zcr, 1 - this.smoothing);
-    this.currentFeatures.energy = this.lerp(this.currentFeatures.energy, features.energy, 1 - this.smoothing);
-    this.currentFeatures.brightness = this.currentFeatures.spectralCentroid / 1500; // Normalized roughly
+    this.currentFeatures.energy = this.currentFeatures.rms; // derive from rms
+
+    // Dynamic brightness: normalize against rolling max instead of hardcoded 1500
+    const maxCentroid = Math.max(...this.history.spectralCentroid) || 1;
+    this.currentFeatures.brightness = this.currentFeatures.spectralCentroid / maxCentroid;
+
+    // energyDelta: spike detection for Neon Rift drop detection
+    const recentAvg = this.history.energy.slice(-10).reduce((a, b) => a + b, 0) / 10 || 0;
+    this.currentFeatures.energyDelta = Math.max(0, this.currentFeatures.energy - recentAvg);
 
     // Update history
     this.history.rms.shift();
     this.history.rms.push(this.currentFeatures.rms);
-    
     this.history.energy.shift();
     this.history.energy.push(this.currentFeatures.energy);
+    this.history.spectralCentroid.shift();
+    this.history.spectralCentroid.push(this.currentFeatures.spectralCentroid);
   }
 
   lerp(start, end, amt) {
