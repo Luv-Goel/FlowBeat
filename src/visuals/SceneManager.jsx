@@ -7,9 +7,18 @@ import NeonRift from './modes/NeonRift';
 import AuroraInk from './modes/AuroraInk';
 import SpotifyMode from './modes/SpotifyMode';
 
-export default function SceneManager() {
+function ActiveMode() {
   const { activeMode } = useAppContext();
+  switch (activeMode) {
+    case MODES.PULSE_GARDEN: return <PulseGarden />;
+    case MODES.NEON_RIFT:    return <NeonRift />;
+    case MODES.AURORA_INK:   return <AuroraInk />;
+    case MODES.SPOTIFY:      return <SpotifyMode />;
+    default:                 return null;
+  }
+}
 
+export default function SceneManager() {
   return (
     <Canvas
       camera={{ position: [0, 0, 10], fov: 60 }}
@@ -19,10 +28,7 @@ export default function SceneManager() {
       <ambientLight intensity={1.2} />
       <pointLight position={[10, 10, 10]} intensity={1.5} />
 
-      <PulseGarden  visible={activeMode === MODES.PULSE_GARDEN} />
-      <NeonRift     visible={activeMode === MODES.NEON_RIFT} />
-      <AuroraInk    visible={activeMode === MODES.AURORA_INK} />
-      <SpotifyMode  visible={activeMode === MODES.SPOTIFY} />
+      <ActiveMode />
 
       <EffectComposer>
         <Bloom luminanceThreshold={0.2} luminanceSmoothing={0.9} intensity={1.2} />
