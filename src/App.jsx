@@ -4,30 +4,9 @@ import SceneManager from './visuals/SceneManager';
 import StudioScope from './visuals/modes/StudioScope';
 import ControlPanel from './ui/ControlPanel';
 import { audioEngine } from './audio/AudioEngine';
-import { exchangeCodeForToken } from './spotify/SpotifyAuth';
 
 function AppInner() {
-  const {
-    activeMode, setActiveMode,
-    setSpotifyToken, setSpotifyRefreshToken,
-    setAlbumColor,
-  } = useAppContext();
-
-  // Handle Spotify OAuth callback — exchange code for tokens then clean URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    if (code) {
-      exchangeCodeForToken(code)
-        .then((data) => {
-          setSpotifyToken(data.access_token);
-          if (data.refresh_token) setSpotifyRefreshToken(data.refresh_token);
-          setActiveMode(MODES.SPOTIFY);
-          window.history.replaceState({}, '', window.location.pathname);
-        })
-        .catch((err) => console.error('Spotify token exchange failed:', err));
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const { setActiveMode } = useAppContext();
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -53,6 +32,8 @@ function AppInner() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [setActiveMode]);
+
+  const { activeMode } = useAppContext();
 
   return (
     <div className="flowbeat-app">

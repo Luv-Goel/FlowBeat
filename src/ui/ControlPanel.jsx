@@ -29,20 +29,19 @@ export default function ControlPanel() {
 
   const [features, setFeatures] = useState({});
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const [spotifyConnectError, setSpotifyConnectError] = useState(null);
 
-  // Poll Spotify now-playing when we have a token
   const { track, albumColor: liveAlbumColor, error: spotifyError } = useSpotifyNowPlaying(
     spotifyToken,
     spotifyRefreshToken,
     (newToken) => setSpotifyToken(newToken),
   );
 
-  // Propagate album colour into context so SpotifyMode can read it
   useEffect(() => {
     if (liveAlbumColor) setAlbumColor(liveAlbumColor);
   }, [liveAlbumColor, setAlbumColor]);
 
-  // Sync smoothing to engine on mount
   useEffect(() => {
     audioEngine.smoothing = smoothing;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -80,6 +79,24 @@ export default function ControlPanel() {
     audioEngine.smoothing = val;
   };
 
+  const handleSpotifyConnect = async () => {
+    if (spotifyToken) { setActiveMode(MODES.SPOTIFY); return; }
+    setSpotifyConnecting(true);
+    setSpotifyConnectError(null);
+    try {
+      const data = await loginWithSpotify();
+      setSpotifyToken(data.access_token);
+      if (data.refresh_token) {
+        // store via context if needed
+      }
+      setActiveMode(MODES.SPOTIFY);
+    } catch (err) {
+      setSpotifyConnectError(err.message);
+    } finally {
+      setSpotifyConnecting(false);
+    }
+  };
+
   return (
     <div className="control-panel">
       <div className="control-header">
@@ -88,11 +105,9 @@ export default function ControlPanel() {
           <button className="btn" onClick={initMic} title="Use Microphone">
             <Mic size={18} /> Mic
           </button>
-
           <button className="btn" onClick={initSystemAudio} title="Capture System Audio">
             <Monitor size={18} /> System
           </button>
-
           <label className="btn" title="Upload Audio File">
             <FileAudio size={18} /> File
             <input type="file" accept="audio/*" onChange={handleFileChange} style={{ display: 'none' }} />
@@ -100,11 +115,13 @@ export default function ControlPanel() {
 
           <button
             className={`btn ${spotifyToken ? 'btn-active' : ''}`}
-            onClick={spotifyToken ? () => setActiveMode(MODES.SPOTIFY) : loginWithSpotify}
+            onClick={handleSpotifyConnect}
+            disabled={spotifyConnecting}
             title={spotifyToken ? 'Switch to Spotify Mode' : 'Connect Spotify'}
-            style={{ color: spotifyToken ? '#1DB954' : undefined }}
+            style={{ color: spotifyToken ? '#1DB954' : undefined, opacity: spotifyConnecting ? 0.6 : 1 }}
           >
-            <Music size={18} /> {spotifyToken ? 'Spotify' : 'Connect'}
+            <Music size={18} />
+            {spotifyConnecting ? 'Connecting…' : spotifyToken ? 'Spotify ✓' : 'Connect Spotify'}
           </button>
 
           <button className="btn btn-primary" onClick={togglePlay} title="Play / Pause (Space)">
@@ -118,14 +135,13 @@ export default function ControlPanel() {
           <button
             className={`btn ${debugMode ? 'btn-active' : ''}`}
             onClick={() => setDebugMode(!debugMode)}
-            title="Debug / Explain Visual"
+            title="Debug Inspector"
           >
             <Code size={18} />
           </button>
         </div>
       </div>
 
-      {/* Banners */}
       {micDenied && (
         <div className="mic-denied-banner">
           🎙️ Mic access denied. Please use <strong>File upload</strong> instead.
@@ -141,13 +157,12 @@ export default function ControlPanel() {
           🔊 {systemAudioHelp}
         </div>
       )}
-      {spotifyError && (
+      {(spotifyError || spotifyConnectError) && (
         <div className="mic-denied-banner">
-          🎵 {spotifyError}
+          🎵 {spotifyError || spotifyConnectError}
         </div>
       )}
 
-      {/* Now Playing strip — visible only in Spotify mode */}
       {activeMode === MODES.SPOTIFY && spotifyToken && (
         <div className="now-playing-strip">
           {track ? (
@@ -185,24 +200,16 @@ export default function ControlPanel() {
             </button>
           ))}
         </div>
-
         <div className="slider-group">
           <Settings2 size={16} />
-          <input
-            type="range" min="0.1" max="3" step="0.1"
-            value={sensitivity}
-            onChange={(e) => setSensitivity(parseFloat(e.target.value))}
-          />
+          <input type="range" min="0.1" max="3" step="0.1" value={sensitivity}
+            onChange={(e) => setSensitivity(parseFloat(e.target.value))} />
           <span>Sensitivity</span>
         </div>
-
         <div className="slider-group">
           <Settings2 size={16} />
-          <input
-            type="range" min="0" max="0.95" step="0.05"
-            value={smoothing}
-            onChange={handleSmoothness}
-          />
+          <input type="range" min="0" max="0.95" step="0.05" value={smoothing}
+            onChange={handleSmoothness} />
           <span>Smoothness</span>
         </div>
       </div>
@@ -230,7 +237,7 @@ export default function ControlPanel() {
             <strong>Interpretation: </strong>
             Energy is <strong>{features.energyTrend || 'steady'}</strong> &middot; {features.energy > 0.15 ? 'High intensity' : 'Mellow'}
             <br />
-            {features.brightness > 0.5 ? 'Bright texture detected (high freq focus).' : 'Dark/Muffled texture detected.'}
+            {features.brightness > 0.5 ? 'Bright texture (high freq focus).' : 'Dark/Muffled texture.'}
           </div>
           <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.5 }}>
             Shortcuts: Space = play · F = fullscreen · 1–5 = modes
