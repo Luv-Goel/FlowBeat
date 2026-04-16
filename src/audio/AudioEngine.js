@@ -6,6 +6,8 @@ class AudioEngine {
     this.source = null;
     this.audioElement = null;
     this.analyzer = null;
+    this.micGain = null;
+    this.systemAudioStream = null;
     
     // Smoothing factor for features
     this.smoothing = 0.8;
@@ -18,7 +20,7 @@ class AudioEngine {
       energy: 0,
       brightness: 0,
       energyDelta: 0,
-      energyTrend: 'steady', // NEW: human-readable trend label
+      energyTrend: 'steady',
     };
 
     // Buffered history for trend detection
@@ -29,7 +31,7 @@ class AudioEngine {
     };
 
     this.isPlaying = false;
-    this.onStateChange = null; // callback for UI updates
+    this.onStateChange = null;
   }
 
   initContext() {
@@ -58,8 +60,6 @@ class AudioEngine {
       await this.audioContext.resume();
       this.source = this.audioContext.createMediaStreamSource(stream);
       
-      // Fix for Webkit/Chrome: The audio graph must reach the destination
-      // for the analyzer to pull data, but we must mute it to prevent feedback.
       this.micGain = this.audioContext.createGain();
       this.micGain.gain.value = 0;
       this.source.connect(this.micGain);
@@ -70,6 +70,39 @@ class AudioEngine {
       this.notifyState();
     } catch (err) {
       console.error('Mic access denied:', err);
+      throw err;
+    }
+  }
+
+  async initSystemAudio() {
+    this.initContext();
+    this.cleanup();
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          sampleRate: 44100,
+        }
+      });
+
+      stream.getVideoTracks().forEach((t) => t.stop());
+
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        throw new Error('NO_AUDIO: User did not share audio. Tell them to check "Share audio".');
+      }
+
+      await this.audioContext.resume();
+      this.systemAudioStream = stream;
+      this.source = this.audioContext.createMediaStreamSource(stream);
+      this.setupMeyda();
+      this.isPlaying = true;
+      this.notifyState();
+    } catch (err) {
+      console.error('System audio capture failed:', err);
       throw err;
     }
   }
@@ -113,17 +146,14 @@ class AudioEngine {
     this.currentFeatures.rms = this.lerp(this.currentFeatures.rms, features.rms, 1 - this.smoothing);
     this.currentFeatures.spectralCentroid = this.lerp(this.currentFeatures.spectralCentroid, features.spectralCentroid || 0, 1 - this.smoothing);
     this.currentFeatures.zcr = this.lerp(this.currentFeatures.zcr, features.zcr, 1 - this.smoothing);
-    this.currentFeatures.energy = this.currentFeatures.rms; // derive from rms
+    this.currentFeatures.energy = this.currentFeatures.rms;
 
-    // Dynamic brightness: normalize against rolling max instead of hardcoded 1500
     const maxCentroid = Math.max(...this.history.spectralCentroid) || 1;
     this.currentFeatures.brightness = this.currentFeatures.spectralCentroid / maxCentroid;
 
-    // energyDelta: spike detection for Neon Rift drop detection
     const recentAvg = this.history.energy.slice(-10).reduce((a, b) => a + b, 0) / 10 || 0;
     this.currentFeatures.energyDelta = Math.max(0, this.currentFeatures.energy - recentAvg);
 
-    // Update history
     this.history.rms.shift();
     this.history.rms.push(this.currentFeatures.rms);
     this.history.energy.shift();
@@ -131,7 +161,6 @@ class AudioEngine {
     this.history.spectralCentroid.shift();
     this.history.spectralCentroid.push(this.currentFeatures.spectralCentroid);
 
-    // energyTrend: compare first 15 vs last 15 of recent 30 frames
     const recentEnergy = this.history.energy.slice(-30);
     const first = recentEnergy.slice(0, 15).reduce((a, b) => a + b, 0) / 15;
     const last = recentEnergy.slice(15).reduce((a, b) => a + b, 0) / 15;
@@ -163,7 +192,6 @@ class AudioEngine {
       }
       this.notifyState();
     } else if (this.source && this.source.mediaStream) {
-      // For mic, we can disconnect or just stop analyzer
       if (this.isPlaying) {
         this.analyzer?.stop();
         this.isPlaying = false;
@@ -193,6 +221,10 @@ class AudioEngine {
     if (this.micGain) {
       this.micGain.disconnect();
       this.micGain = null;
+    }
+    if (this.systemAudioStream) {
+      this.systemAudioStream.getTracks().forEach((track) => track.stop());
+      this.systemAudioStream = null;
     }
     this.isPlaying = false;
   }

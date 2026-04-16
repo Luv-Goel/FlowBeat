@@ -1,17 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Pause, Mic, Settings2, Code, FileAudio, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Pause, Mic, Monitor, Settings2, Code, FileAudio, Maximize2, Minimize2 } from 'lucide-react';
 import { useAudioEngine } from '../audio/useAudioEngine';
 import { useAppContext, MODES } from '../AppContext';
 import { audioEngine } from '../audio/AudioEngine';
 
 export default function ControlPanel() {
-  const { isPlaying, micDenied, togglePlay, initMic, initFile } = useAudioEngine();
+  const {
+    isPlaying,
+    micDenied,
+    systemAudioUnsupported,
+    systemAudioHelp,
+    togglePlay,
+    initMic,
+    initFile,
+    initSystemAudio,
+  } = useAudioEngine();
   const { activeMode, setActiveMode, sensitivity, setSensitivity, debugMode, setDebugMode } = useAppContext();
   const [features, setFeatures] = useState({});
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    // Polling features for the UI
     const interval = setInterval(() => {
       if (isPlaying) {
         setFeatures(audioEngine.getFeatures());
@@ -21,7 +29,6 @@ export default function ControlPanel() {
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // Sync fullscreen state when user exits via Escape key
   useEffect(() => {
     const onFsChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -48,12 +55,15 @@ export default function ControlPanel() {
 
   return (
     <div className="control-panel">
-      {/* Top Header Controls */}
       <div className="control-header">
         <h1 className="logo">FlowBeat</h1>
         <div className="controls-group">
           <button className="btn" onClick={initMic} title="Use Microphone">
             <Mic size={18} /> Mic
+          </button>
+
+          <button className="btn" onClick={initSystemAudio} title="Capture System Audio (PC Output)">
+            <Monitor size={18} /> System
           </button>
           
           <label className="btn" title="Upload Audio">
@@ -62,7 +72,7 @@ export default function ControlPanel() {
           </label>
 
           <button className={`btn btn-primary`} onClick={togglePlay}>
-            {isPlaying ? <Pause size={18} /> : <Play size={18} />} 
+            {isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
 
           <button className="btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
@@ -81,7 +91,18 @@ export default function ControlPanel() {
         </div>
       )}
 
-      {/* Mode Selector & Sensitivity */}
+      {systemAudioUnsupported && (
+        <div className="mic-denied-banner" style={{ top: micDenied ? '126px' : '80px' }}>
+          ⚠️ Use <strong>Chrome or Edge</strong> for System Audio capture.
+        </div>
+      )}
+
+      {!systemAudioUnsupported && systemAudioHelp && (
+        <div className="mic-denied-banner" style={{ top: micDenied ? '126px' : '80px' }}>
+          🔊 {systemAudioHelp}
+        </div>
+      )}
+
       <div className="control-bottom">
         <div className="mode-selector">
           {Object.values(MODES).map((mode) => (
@@ -109,7 +130,6 @@ export default function ControlPanel() {
         </div>
       </div>
 
-      {/* AI Inspector / Debug View */}
       {debugMode && (
         <div className="inspector-panel">
           <h3>Explain This Visual</h3>
