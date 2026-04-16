@@ -2,6 +2,13 @@ const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
 const REDIRECT_URI = 'http://127.0.0.1:5173/';
 const SCOPES = 'user-read-playback-state user-read-currently-playing';
 
+// Accept messages from both 127.0.0.1 and localhost — Vite may serve on either,
+// and the popup always uses 127.0.0.1 (the redirect_uri), causing an origin mismatch.
+const ALLOWED_ORIGINS = new Set([
+  'http://127.0.0.1:5173',
+  'http://localhost:5173',
+]);
+
 async function generateCodeVerifier() {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
@@ -35,7 +42,7 @@ export async function loginWithSpotify() {
   });
 
   console.log('[FlowBeat] Opening Spotify popup, redirect_uri:', REDIRECT_URI);
-  const popup = window.open(
+  window.open(
     `https://accounts.spotify.com/authorize?${params}`,
     'spotify_auth',
     'width=500,height=700,left=400,top=100'
@@ -48,7 +55,7 @@ export async function loginWithSpotify() {
       reject(new Error('Spotify auth timed out. Please try again.'));
     }, 120_000);
 
-    // Fallback: poll sessionStorage in case opener reference was lost
+    // Fallback: poll sessionStorage in case postMessage still fails
     const pollTimer = setInterval(async () => {
       const fallbackCode = sessionStorage.getItem('spotify_callback_code');
       if (fallbackCode) {
@@ -68,7 +75,11 @@ export async function loginWithSpotify() {
     }, 500);
 
     async function onMessage(event) {
-      if (event.origin !== window.location.origin) return;
+      // Allow both 127.0.0.1:5173 and localhost:5173
+      if (!ALLOWED_ORIGINS.has(event.origin)) {
+        console.log('[FlowBeat] Ignored message from origin:', event.origin);
+        return;
+      }
       if (!event.data?.spotify_code && !event.data?.spotify_error) return;
 
       clearTimeout(timeout);
