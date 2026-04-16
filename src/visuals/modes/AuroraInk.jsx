@@ -1,45 +1,59 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { audioEngine } from '../../audio/AudioEngine';
 import { useAppContext } from '../../AppContext';
 import * as THREE from 'three';
 
+const RIBBON_POINTS = 80;
+
 export default function AuroraInk() {
   const meshRef = useRef();
-  const materialRef = useRef();
-  const targetScale = useRef(new THREE.Vector3(1, 1, 1)); // Fix: persistent ref
+  const colorRef = useRef(new THREE.Color());
   const { sensitivity } = useAppContext();
 
-  useFrame((state, delta) => {
+  // Persistent control-point array — mutated in-place each frame, no allocation
+  const pointsArray = useRef(
+    Array.from({ length: RIBBON_POINTS }, (_, i) =>
+      new THREE.Vector3(Math.sin(i * 0.2) * 4, (i - RIBBON_POINTS / 2) * 0.15, 0)
+    )
+  );
+
+  useFrame((state) => {
     const features = audioEngine.getFeatures();
-    if (!meshRef.current) return;
+    const t = state.clock.elapsedTime;
 
-    meshRef.current.rotation.y += delta * 0.12;
-    meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.4) * 0.4;
+    // Animate control points like flowing ink ribbons
+    pointsArray.current.forEach((pt, i) => {
+      pt.x = Math.sin(i * 0.2 + t * 0.5) * (3 + features.brightness * 2 * sensitivity);
+      pt.z = Math.cos(i * 0.15 + t * 0.3) * (1 + features.energy * sensitivity * 4);
+    });
 
-    const scale = 1 + features.rms * sensitivity * 4;
-    targetScale.current.set(scale, scale * 1.4, scale); // Fix: reuse same object
-    meshRef.current.scale.lerp(targetScale.current, 0.05);
+    // Rebuild tube geometry each frame (kept cheap at RIBBON_POINTS=80)
+    if (meshRef.current) {
+      const curve = new THREE.CatmullRomCurve3(pointsArray.current);
+      const newGeo = new THREE.TubeGeometry(curve, RIBBON_POINTS, 0.05 + features.energy * 0.15, 6, false);
+      meshRef.current.geometry.dispose();
+      meshRef.current.geometry = newGeo;
 
-    if (materialRef.current) {
-      // Use normalized brightness (already dynamic in AudioEngine)
-      const hue = 0.58 + features.brightness * 0.25;
-      materialRef.current.color.setHSL(hue, 1, 0.55);
-      materialRef.current.emissiveIntensity = 0.4 + features.energy * sensitivity * 3;
+      const hue = (0.6 + features.brightness * 0.3 + t * 0.02) % 1;
+      colorRef.current.setHSL(hue, 0.8, 0.55);
+      meshRef.current.material.color.copy(colorRef.current);
+      meshRef.current.material.emissive.copy(colorRef.current);
+      meshRef.current.material.emissiveIntensity = 0.3 + features.energy * sensitivity * 2;
     }
   });
 
+  const initialGeo = useMemo(() => {
+    const pts = Array.from({ length: RIBBON_POINTS }, (_, i) =>
+      new THREE.Vector3(Math.sin(i * 0.2) * 4, (i - RIBBON_POINTS / 2) * 0.15, 0)
+    );
+    const curve = new THREE.CatmullRomCurve3(pts);
+    return new THREE.TubeGeometry(curve, RIBBON_POINTS, 0.05, 6, false);
+  }, []);
+
   return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[3, 64, 64]} />
-      <meshStandardMaterial
-        ref={materialRef}
-        color="#aa00ff"
-        wireframe
-        emissive="#5500aa"
-        emissiveIntensity={0.8}
-        roughness={0.2}
-      />
+    <mesh ref={meshRef} geometry={initialGeo}>
+      <meshStandardMaterial color="#8844ff" emissive="#8844ff" emissiveIntensity={0.3} />
     </mesh>
   );
 }

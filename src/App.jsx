@@ -1,20 +1,29 @@
 import React from 'react';
+import { AppProvider, MODES, useAppContext } from './AppContext';
 import SceneManager from './visuals/SceneManager';
+import StudioScope from './visuals/modes/StudioScope';
 import ControlPanel from './ui/ControlPanel';
-import { AppProvider } from './AppContext';
-import './index.css';
 
-function App() {
+function AppInner() {
+  const { activeMode } = useAppContext();
   return (
-    <AppProvider>
-      <div className="flowbeat-app">
-        <div className="canvas-container">
+    <div className="flowbeat-app">
+      <div className="canvas-container">
+        {activeMode === MODES.STUDIO_SCOPE ? (
+          <StudioScope />
+        ) : (
           <SceneManager />
-        </div>
-        <ControlPanel />
+        )}
       </div>
-    </AppProvider>
+      <ControlPanel />
+    </div>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <AppProvider>
+      <AppInner />
+    </AppProvider>
+  );
+}

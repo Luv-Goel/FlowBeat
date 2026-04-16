@@ -5,28 +5,33 @@ FlowBeat is a lean, privacy-first, browser-based music visualizer. It transforms
 Rather than just moving a spectrum bar to kicks and snares, FlowBeat interprets tracking energy thresholds (RMS), brightness traits (Spectral Centroid), string-pluck densities (ZCR), drop detection thresholds, and multi-frame energy trends — all directly from the local browser environment without uploading any assets to cloud servers.
 
 ## Core Features
+
 1. **Zero Latency**: Powered by the native Web Audio API mapped straight to your local graphics hardware.
 2. **Browser-Native Intelligence**: Extracts complex real-time metrics with Meyda directly within an internal React context map, without utilizing heavy React re-renders.
-3. **Three Signature Visual Modes**:
-   - 🌿 **Pulse Garden**: Slow fluid geometry pulsing gently for ambient aesthetics.
-   - ⚡ **Neon Rift**: High contrast geometry, color-flashes, and multi-axis drop detection specifically tuned for EDM/Trap. Features a frame-accurate flash system that fires on `energyDelta` spikes and decays smoothly every frame.
-   - 🌌 **Aurora Ink**: Shimmering ambient clouds adjusting hue on brightness frequencies.
+3. **Four Signature Visual Modes**:
+   - 🌿 **Pulse Garden**: Slow fluid particle sphere pulsing gently for ambient aesthetics.
+   - ⚡ **Neon Rift**: High-contrast geometry with a per-frame flash system that fires on `energyDelta` spikes — tuned for EDM/Trap drops.
+   - 🌌 **Aurora Ink**: A flowing CatmullRom ribbon that reshapes every frame driven by spectral brightness and energy — the most cinematic mode.
+   - 📊 **Studio Scope**: 2D Canvas HUD showing live waveform history, RMS bar, energy arc, delta flash ring, and a colour-coded `energyTrend` badge — the producer/debug mode.
 4. **Offline and 100% Free**: No dependencies on paid APIs or external inference endpoints.
 5. **Fullscreen Mode**: One-click immersive fullscreen toggle with automatic state sync (works even when exiting via Escape key).
-6. **Transparency / Debug Panel**: The "Explain Visual" panel now shows four live metrics — Energy, Brightness, Noisiness, and Energy Delta — plus a dynamic human-readable interpretation: *Energy is **rising** · High intensity*.
+6. **Transparency / Debug Panel**: The "Explain Visual" panel shows four live metric bars — Energy, Brightness, Noisiness, Energy Delta — plus a dynamic human-readable interpretation: *Energy is **rising** · High intensity*.
 
 ## What's New (Latest Update)
 
 ### 🐛 Bug Fixes
-- **`THREE.Color` allocation fix in `PulseGarden`**: Eliminated 60 GC-pressure object allocations/sec by introducing a persistent `colorRef` that is mutated in-place via `setHSL()` instead of creating a new `THREE.Color()` every frame across 1200 particles.
-- **Removed unused `OrbitControls` import** from `SceneManager.jsx` to eliminate linting warnings.
+- **`NeonRift` material fix**: Switched from `meshBasicMaterial` (no emissive support) to `meshStandardMaterial`. The `emissiveIntensity` property now fires correctly on every drop, giving a real glow flash instead of silently doing nothing.
 
 ### ✨ New Features
-- **`energyTrend` label in `AudioEngine`**: `processFeatures()` now computes a `'rising'` / `'falling'` / `'steady'` label by comparing the first 15 vs last 15 frames of the 30-frame rolling energy history.
-- **Dynamic Inspector Labels**: The Debug panel's interpretation line now reads *Energy is **[trend]** · [intensity]* using the live `energyTrend` and `energy` values, replacing the old static string.
-- **Energy Delta bar in Inspector**: A fourth metric bar (red-tinted) visualizes `energyDelta` directly, giving instant visual confirmation of drop events.
-- **Fullscreen Toggle**: A `Maximize2`/`Minimize2` button in the control bar calls `requestFullscreen()` / `exitFullscreen()` and listens for `fullscreenchange` events to keep icon state in sync when the user presses Escape.
-- **NeonRift Flash System**: `flashRef` tracks a 0–1 flash intensity that spikes to `1.0` on any `energyDelta > 0.05 * sensitivity` event and decays at `× 0.85` each frame (~17 frames to fade). The flash modulates both the box color channel and the octahedron tint for a genuine drop-reactive strobe feel.
+- **`AuroraInk` full ribbon implementation**: Replaced the wireframe sphere stub with a proper `CatmullRomCurve3` → `TubeGeometry` ribbon rebuilt every frame. Control points flow like ink under `sin`/`cos` waves driven by `brightness` and `energy`. Hue shifts continuously via `t * 0.02` clock drift plus `brightness` offset.
+- **`StudioScope` mode**: A 2D Canvas overlay (no Three.js) rendering:
+  - Energy waveform history line (purple, full-width)
+  - Spectral arc whose radius and sweep angle track brightness and energy
+  - Flash ring that fires on `energyDelta` spikes (red glow)
+  - RMS bar on the left edge
+  - Live numeric readout: Energy, Brightness, ZCR, ΔEnergy
+  - Colour-coded `energyTrend` badge (teal = rising, red = falling, grey = steady)
+- **Scene lighting boost**: `ambientLight` raised from `0.5` → `1.2`, plus a `pointLight` at `[0, 0, 8]` with intensity `2` — required for `meshStandardMaterial` wireframes to look bright.
 
 ## Technology Stack
 - **Frontend Framework**: React 18 & Vite
@@ -52,15 +57,14 @@ npm run dev
 
 Visit the outputted URL (normally `http://localhost:5173`) and enjoy FlowBeat!
 
-## Testing Guide (First Real Audio Test)
+## Testing Guide
 
-Once running, test with these track types and expected behaviours:
-
-| Track Type | Expected Behaviour |
-|---|---|
-| **Lo-fi / Ambient** | Pulse Garden blooms slowly, gentle colour-shift, `energyTrend: steady` |
-| **EDM / Trap** | Neon Rift spikes hard on drops, flash fires on kick hits, `energyTrend: rising` during build-ups |
-| **Vocal / Indie** | Aurora Ink shows smooth hue drift driven by spectral centroid |
+| Track Type | Mode | Expected Behaviour |
+|---|---|---|
+| Lo-fi / Ambient | Pulse Garden | Slow bloom, gentle colour-shift, `energyTrend: steady` |
+| EDM / Trap | Neon Rift | Hard spikes on drops, flash glow fires on kick hits, `energyTrend: rising` during build-ups |
+| Vocal / Indie | Aurora Ink | Smooth ribbon reshaping, hue drift driven by spectral centroid |
+| Any track | Studio Scope | All metrics live — use this to calibrate Sensitivity before switching modes |
 
 If nothing responds, raise the **Sensitivity** slider (default `1.0` may be too low for quiet recordings). If visuals are oversaturated, lower it toward `0.3`.
 
@@ -69,11 +73,13 @@ If nothing responds, raise the **Sensitivity** slider (default `1.0` may be too 
 | Feature | Status |
 |---|---|
 | Audio pipeline | ✅ Complete |
-| Visual modes (Pulse Garden, Neon Rift, Aurora Ink) | ✅ Done |
-| Performance fixes (Color alloc, dpr cap) | ✅ Done |
+| Pulse Garden | ✅ Done |
+| Neon Rift + flash system | ✅ Done |
+| Aurora Ink ribbon | ✅ Done |
+| Studio Scope HUD | ✅ Done |
 | `energyTrend` label + dynamic inspector | ✅ Done |
 | Fullscreen toggle | ✅ Done |
-| NeonRift flash system | ✅ Done |
+| Scene lighting (standard material support) | ✅ Done |
 | Real audio testing | 🧪 Ready — test now |
 | Mode transition polish | 🔜 Next |
 | Export / Creator mode | 🔜 Later |

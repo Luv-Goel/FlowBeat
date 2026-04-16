@@ -17,7 +17,9 @@ export default function SceneManager() {
         dpr={[1, 1.5]}
       >
         <color attach="background" args={['#050505']} />
-        <ambientLight intensity={0.5} />
+        {/* Boosted lighting for meshStandardMaterial modes (NeonRift, AuroraInk) */}
+        <ambientLight intensity={1.2} />
+        <pointLight position={[0, 0, 8]} intensity={2} color="#ffffff" />
 
         <Suspense fallback={null}>
           <group visible={activeMode === MODES.PULSE_GARDEN}>

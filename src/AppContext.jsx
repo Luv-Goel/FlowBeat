@@ -5,7 +5,8 @@ const AppContext = createContext();
 export const MODES = {
   PULSE_GARDEN: 'Pulse Garden',
   NEON_RIFT: 'Neon Rift',
-  AURORA_INK: 'Aurora Ink'
+  AURORA_INK: 'Aurora Ink',
+  STUDIO_SCOPE: 'Studio Scope',
 };
 
 export function AppProvider({ children }) {
