@@ -1,10 +1,5 @@
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-
-// Hardcoded to avoid any .env loading issues.
-// Must exactly match what is in your Spotify dashboard Redirect URIs.
-// Currently registered as: http://127.0.0.1:5173/
 const REDIRECT_URI = 'http://127.0.0.1:5173/';
-
 const SCOPES = 'user-read-playback-state user-read-currently-playing';
 
 async function generateCodeVerifier() {
@@ -39,32 +34,50 @@ export async function loginWithSpotify() {
     code_challenge: challenge,
   });
 
-  // Debug: confirm exactly what is being sent
-  console.log('[FlowBeat] Spotify auth — client_id:', CLIENT_ID);
-  console.log('[FlowBeat] Spotify auth — redirect_uri being sent:', REDIRECT_URI);
-
+  console.log('[FlowBeat] Opening Spotify auth popup, redirect_uri:', REDIRECT_URI);
   const url = `https://accounts.spotify.com/authorize?${params}`;
   const popup = window.open(url, 'spotify_auth', 'width=500,height=700,left=400,top=100');
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+
+    // Poll for popup closed — but give a 1.5s grace window after
+    // window.close() is called, so the postMessage always wins the race.
     const timer = setInterval(() => {
-      if (popup && popup.closed) {
-        clearInterval(timer);
-        reject(new Error('Spotify auth popup was closed.'));
+      if (popup && popup.closed && !settled) {
+        // Wait 1.5s before rejecting, in case postMessage is still in flight
+        setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            clearInterval(timer);
+            reject(new Error('Spotify auth popup was closed.'));
+          }
+        }, 1500);
+        clearInterval(timer); // stop polling once we detect close
       }
     }, 500);
 
     const onMessage = async (event) => {
       if (event.origin !== window.location.origin) return;
-      if (!event.data?.spotify_code) return;
+      if (!event.data?.spotify_code && !event.data?.spotify_error) return;
 
+      // Message received — settle immediately, cancel the closed-rejection
+      settled = true;
       clearInterval(timer);
       window.removeEventListener('message', onMessage);
 
+      if (event.data.spotify_error) {
+        reject(new Error(`Spotify denied access: ${event.data.spotify_error}`));
+        return;
+      }
+
+      console.log('[FlowBeat] Got auth code from popup, exchanging for token...');
       try {
         const tokens = await exchangeCodeForToken(event.data.spotify_code);
+        console.log('[FlowBeat] Token exchange success!');
         resolve(tokens);
       } catch (err) {
+        console.error('[FlowBeat] Token exchange failed:', err);
         reject(err);
       }
     };

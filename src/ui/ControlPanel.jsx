@@ -17,13 +17,14 @@ export default function ControlPanel() {
     initFile,
     initSystemAudio,
   } = useAudioEngine();
+
   const {
     activeMode, setActiveMode,
     sensitivity, setSensitivity,
     smoothing, setSmoothness,
     debugMode, setDebugMode,
     spotifyToken, setSpotifyToken,
-    spotifyRefreshToken,
+    spotifyRefreshToken, setSpotifyRefreshToken,
     setAlbumColor,
   } = useAppContext();
 
@@ -31,6 +32,12 @@ export default function ControlPanel() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
   const [spotifyConnectError, setSpotifyConnectError] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const { track, albumColor: liveAlbumColor, error: spotifyError } = useSpotifyNowPlaying(
     spotifyToken,
@@ -80,18 +87,22 @@ export default function ControlPanel() {
   };
 
   const handleSpotifyConnect = async () => {
-    if (spotifyToken) { setActiveMode(MODES.SPOTIFY); return; }
+    if (spotifyToken) {
+      setActiveMode(MODES.SPOTIFY);
+      return;
+    }
     setSpotifyConnecting(true);
     setSpotifyConnectError(null);
     try {
       const data = await loginWithSpotify();
       setSpotifyToken(data.access_token);
-      if (data.refresh_token) {
-        // store via context if needed
-      }
+      if (data.refresh_token) setSpotifyRefreshToken(data.refresh_token);
       setActiveMode(MODES.SPOTIFY);
+      showToast('🎵 Spotify connected! Switched to Spotify mode.');
     } catch (err) {
+      console.error('[FlowBeat] Spotify connect error:', err);
       setSpotifyConnectError(err.message);
+      showToast(`❌ ${err.message}`, 'error');
     } finally {
       setSpotifyConnecting(false);
     }
@@ -99,6 +110,16 @@ export default function ControlPanel() {
 
   return (
     <div className="control-panel">
+
+      {/* Toast notification */}
+      {toast && (
+        <div className="toast" style={{
+          background: toast.type === 'error' ? 'rgba(220,38,38,0.9)' : 'rgba(29,185,84,0.9)',
+        }}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="control-header">
         <h1 className="logo">FlowBeat</h1>
         <div className="controls-group">
@@ -118,7 +139,11 @@ export default function ControlPanel() {
             onClick={handleSpotifyConnect}
             disabled={spotifyConnecting}
             title={spotifyToken ? 'Switch to Spotify Mode' : 'Connect Spotify'}
-            style={{ color: spotifyToken ? '#1DB954' : undefined, opacity: spotifyConnecting ? 0.6 : 1 }}
+            style={{
+              color: spotifyToken ? '#1DB954' : undefined,
+              opacity: spotifyConnecting ? 0.6 : 1,
+              borderColor: spotifyToken ? 'rgba(29,185,84,0.5)' : undefined,
+            }}
           >
             <Music size={18} />
             {spotifyConnecting ? 'Connecting…' : spotifyToken ? 'Spotify ✓' : 'Connect Spotify'}
@@ -142,14 +167,15 @@ export default function ControlPanel() {
         </div>
       </div>
 
+      {/* Banners */}
       {micDenied && (
         <div className="mic-denied-banner">
-          🎙️ Mic access denied. Please use <strong>File upload</strong> instead.
+          🎙️ Mic access denied. Use <strong>File upload</strong> instead.
         </div>
       )}
       {systemAudioUnsupported && (
         <div className="mic-denied-banner" style={{ top: micDenied ? '126px' : '80px' }}>
-          ⚠️ Use <strong>Chrome or Edge</strong> for System Audio capture.
+          ⚠️ Use <strong>Chrome or Edge</strong> for System Audio.
         </div>
       )}
       {!systemAudioUnsupported && systemAudioHelp && (
@@ -157,12 +183,13 @@ export default function ControlPanel() {
           🔊 {systemAudioHelp}
         </div>
       )}
-      {(spotifyError || spotifyConnectError) && (
+      {spotifyError && (
         <div className="mic-denied-banner">
-          🎵 {spotifyError || spotifyConnectError}
+          🎵 {spotifyError}
         </div>
       )}
 
+      {/* Now Playing strip */}
       {activeMode === MODES.SPOTIFY && spotifyToken && (
         <div className="now-playing-strip">
           {track ? (
@@ -171,8 +198,7 @@ export default function ControlPanel() {
                 <img
                   src={track.album.images[2].url}
                   alt="Album art"
-                  width={36}
-                  height={36}
+                  width={36} height={36}
                   style={{ borderRadius: '4px', flexShrink: 0 }}
                 />
               )}
@@ -182,7 +208,7 @@ export default function ControlPanel() {
               </div>
             </>
           ) : (
-            <span style={{ opacity: 0.5 }}>🎵 Nothing playing on Spotify…</span>
+            <span style={{ opacity: 0.6 }}>🎵 Nothing playing on Spotify right now…</span>
           )}
         </div>
       )}
@@ -194,7 +220,7 @@ export default function ControlPanel() {
               key={mode}
               className={`btn-mode ${activeMode === mode ? 'active' : ''}`}
               onClick={() => setActiveMode(mode)}
-              title={`Switch to ${mode} (${i + 1})`}
+              title={`${mode} (${i + 1})`}
             >
               {mode}
             </button>

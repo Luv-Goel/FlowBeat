@@ -78,6 +78,7 @@ body {
 }
 .btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
 .btn:active { background: rgba(255,255,255,0.18); }
+.btn:disabled { cursor: not-allowed; }
 
 .btn-primary {
   background: rgba(99,102,241,0.35);
@@ -134,6 +135,28 @@ body {
   width: 90px;
   accent-color: #818cf8;
   cursor: pointer;
+}
+
+/* ─── Toast ─────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  z-index: 9999;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  animation: toastIn 0.2s ease-out;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* ─── Banners ──────────────────────────────────────────────────────── */
