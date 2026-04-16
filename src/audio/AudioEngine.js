@@ -20,7 +20,7 @@ class AudioEngine {
     };
 
     this.history = {
-      energy: [],
+      energy: new Array(120).fill(0),
     };
 
     this._lastEnergy = 0;
@@ -75,10 +75,7 @@ class AudioEngine {
   async initSystemAudio() {
     await this._initContext();
     if (this.source) this.source.disconnect();
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true,
-    });
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) throw new Error('No audio track in screen capture.');
     const audioStream = new MediaStream(audioTracks);
@@ -134,18 +131,17 @@ class AudioEngine {
     const energyDelta = rms - this._lastEnergy;
     this._lastEnergy = rms;
 
+    // Rolling 120-frame history (pre-filled so StudioScope never sees empty array)
     this.history.energy.push(rms);
-    if (this.history.energy.length > 60) this.history.energy.shift();
+    this.history.energy.shift();
 
     // Energy trend label
-    if (this.history.energy.length >= 30) {
-      const recent = this.history.energy.slice(-30);
-      const first = recent.slice(0, 15).reduce((a, b) => a + b, 0) / 15;
-      const last  = recent.slice(15).reduce((a, b) => a + b, 0) / 15;
-      this.currentFeatures.energyTrend =
-        last > first * 1.15 ? 'rising' :
-        last < first * 0.85 ? 'falling' : 'steady';
-    }
+    const recent = this.history.energy.slice(-30);
+    const first = recent.slice(0, 15).reduce((a, b) => a + b, 0) / 15;
+    const last  = recent.slice(15).reduce((a, b) => a + b, 0) / 15;
+    this.currentFeatures.energyTrend =
+      last > first * 1.15 ? 'rising' :
+      last < first * 0.85 ? 'falling' : 'steady';
 
     this.currentFeatures.energy      = rms;
     this.currentFeatures.brightness  = centroid;
@@ -157,7 +153,11 @@ class AudioEngine {
     return { ...this.currentFeatures };
   }
 
-  // File seek / progress
+  // Expose rolling history for StudioScope
+  getHistory() {
+    return { energy: [...this.history.energy] };
+  }
+
   getProgress() {
     if (!this.audioElement) return { current: 0, duration: 0, percent: 0 };
     const current  = this.audioElement.currentTime;

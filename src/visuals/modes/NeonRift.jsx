@@ -10,13 +10,14 @@ export default function NeonRift() {
   const octaRef = useRef();
   const targetScale = useRef(new THREE.Vector3(1, 1, 1));
   const flashRef = useRef(0);
-  const { sensitivity } = useAppContext();
+  const { sensitivity, colorTheme } = useAppContext();
 
   useFrame((state, delta) => {
     const features = audioEngine.getFeatures();
     if (!groupRef.current) return;
 
-    groupRef.current.rotation.z += delta * (0.4 + features.rms * sensitivity * 12);
+    // rotation driven by energy (was features.rms — fixed to features.energy)
+    groupRef.current.rotation.z += delta * (0.4 + features.energy * sensitivity * 12);
     groupRef.current.rotation.x += delta * 0.15;
 
     const scale = 1 + (features.energyDelta * sensitivity * 20) + (features.zcr * 0.003);
@@ -24,20 +25,30 @@ export default function NeonRift() {
     groupRef.current.scale.lerp(targetScale.current, 0.15);
 
     // Flash trigger + decay
-    if (features.energyDelta > 0.05 * sensitivity) {
-      flashRef.current = 1.0;
-    }
+    if (features.energyDelta > 0.05 * sensitivity) flashRef.current = 1.0;
     flashRef.current *= 0.85;
 
-    // meshStandardMaterial — color AND emissiveIntensity both work now
+    // colorTheme: hueShift shifts base hue, satMult scales saturation
+    // Box: warm red/orange base, shifted by theme
     if (boxRef.current) {
-      const r = 0.8 + features.energyDelta * 5 + flashRef.current * 0.5;
-      boxRef.current.material.color.setRGB(Math.min(r, 1), flashRef.current * 0.1, 0.3);
+      const baseHue = 0.0 + colorTheme.hueShift; // red base
+      const sat = colorTheme.satMult;
+      const lit = 0.5 + flashRef.current * 0.3;
+      const c = new THREE.Color().setHSL(((baseHue % 1) + 1) % 1, sat, lit);
+      c.r = Math.min(c.r + features.energyDelta * 5, 1);
+      boxRef.current.material.color.set(c);
+      boxRef.current.material.emissive.set(c);
       boxRef.current.material.emissiveIntensity = 0.5 + flashRef.current * 2.0;
     }
+
+    // Octahedron: cyan/blue base, shifted by theme
     if (octaRef.current) {
-      const b = 0.5 + features.brightness * 0.5;
-      octaRef.current.material.color.setRGB(flashRef.current * 0.2, b, 1);
+      const baseHue = 0.55 + colorTheme.hueShift; // cyan base
+      const sat = colorTheme.satMult;
+      const lit = 0.4 + features.brightness * 0.3;
+      const c = new THREE.Color().setHSL(((baseHue % 1) + 1) % 1, sat, lit);
+      octaRef.current.material.color.set(c);
+      octaRef.current.material.emissive.set(c);
       octaRef.current.material.emissiveIntensity = 0.3 + flashRef.current * 1.5;
     }
   });

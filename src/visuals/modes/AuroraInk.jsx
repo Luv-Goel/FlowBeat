@@ -4,56 +4,72 @@ import { audioEngine } from '../../audio/AudioEngine';
 import { useAppContext } from '../../AppContext';
 import * as THREE from 'three';
 
-const RIBBON_POINTS = 80;
+const COUNT = 80;
 
 export default function AuroraInk() {
-  const meshRef = useRef();
+  const groupRef = useRef();
+  const { sensitivity, colorTheme } = useAppContext();
   const colorRef = useRef(new THREE.Color());
-  const { sensitivity } = useAppContext();
 
-  // Persistent control-point array — mutated in-place each frame, no allocation
-  const pointsArray = useRef(
-    Array.from({ length: RIBBON_POINTS }, (_, i) =>
-      new THREE.Vector3(Math.sin(i * 0.2) * 4, (i - RIBBON_POINTS / 2) * 0.15, 0)
-    )
-  );
+  const meshRefs = useRef([]);
 
-  useFrame((state) => {
+  const data = useMemo(() => Array.from({ length: COUNT }, (_, i) => ({
+    x: (Math.random() - 0.5) * 14,
+    y: (Math.random() - 0.5) * 8,
+    z: (Math.random() - 0.5) * 4,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.3 + Math.random() * 0.7,
+    baseHue: Math.random(),
+  })), []);
+
+  useFrame((state, delta) => {
     const features = audioEngine.getFeatures();
     const t = state.clock.elapsedTime;
 
-    // Animate control points like flowing ink ribbons
-    pointsArray.current.forEach((pt, i) => {
-      pt.x = Math.sin(i * 0.2 + t * 0.5) * (3 + features.brightness * 2 * sensitivity);
-      pt.z = Math.cos(i * 0.15 + t * 0.3) * (1 + features.energy * sensitivity * 4);
+    data.forEach((d, i) => {
+      const mesh = meshRefs.current[i];
+      if (!mesh) return;
+
+      const wave = Math.sin(t * d.speed + d.phase) * features.energy * sensitivity * 3;
+      mesh.position.x = d.x + wave;
+      mesh.position.y = d.y + Math.cos(t * d.speed * 0.5 + d.phase) * features.brightness * 2;
+      mesh.position.z = d.z;
+
+      const s = 0.05 + features.energy * sensitivity * 0.4;
+      mesh.scale.setScalar(s);
+
+      // Apply colorTheme
+      const hue = ((d.baseHue + features.brightness * 0.3 + colorTheme.hueShift) % 1 + 1) % 1;
+      const sat = Math.max(0.7 * colorTheme.satMult, 0.01);
+      colorRef.current.setHSL(hue, sat, 0.55);
+      mesh.material.color.set(colorRef.current);
+      mesh.material.emissive.set(colorRef.current);
+      mesh.material.emissiveIntensity = 0.4 + features.energy * 2;
     });
 
-    // Rebuild tube geometry each frame (kept cheap at RIBBON_POINTS=80)
-    if (meshRef.current) {
-      const curve = new THREE.CatmullRomCurve3(pointsArray.current);
-      const newGeo = new THREE.TubeGeometry(curve, RIBBON_POINTS, 0.05 + features.energy * 0.15, 6, false);
-      meshRef.current.geometry.dispose();
-      meshRef.current.geometry = newGeo;
-
-      const hue = (0.6 + features.brightness * 0.3 + t * 0.02) % 1;
-      colorRef.current.setHSL(hue, 0.8, 0.55);
-      meshRef.current.material.color.copy(colorRef.current);
-      meshRef.current.material.emissive.copy(colorRef.current);
-      meshRef.current.material.emissiveIntensity = 0.3 + features.energy * sensitivity * 2;
+    if (groupRef.current) {
+      groupRef.current.rotation.z += delta * features.energy * sensitivity * 0.5;
     }
   });
 
-  const initialGeo = useMemo(() => {
-    const pts = Array.from({ length: RIBBON_POINTS }, (_, i) =>
-      new THREE.Vector3(Math.sin(i * 0.2) * 4, (i - RIBBON_POINTS / 2) * 0.15, 0)
-    );
-    const curve = new THREE.CatmullRomCurve3(pts);
-    return new THREE.TubeGeometry(curve, RIBBON_POINTS, 0.05, 6, false);
-  }, []);
-
   return (
-    <mesh ref={meshRef} geometry={initialGeo}>
-      <meshStandardMaterial color="#8844ff" emissive="#8844ff" emissiveIntensity={0.3} />
-    </mesh>
+    <group ref={groupRef}>
+      {data.map((d, i) => (
+        <mesh
+          key={i}
+          ref={(el) => (meshRefs.current[i] = el)}
+          position={[d.x, d.y, d.z]}
+        >
+          <sphereGeometry args={[0.5, 8, 8]} />
+          <meshStandardMaterial
+            color="#8844ff"
+            emissive="#8844ff"
+            emissiveIntensity={0.4}
+            transparent
+            opacity={0.75}
+          />
+        </mesh>
+      ))}
+    </group>
   );
 }
