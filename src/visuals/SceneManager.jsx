@@ -1,7 +1,6 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing'; // Fix: correct import
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { useAppContext, MODES } from '../AppContext';
 import PulseGarden from './modes/PulseGarden';
 import NeonRift from './modes/NeonRift';
@@ -21,13 +20,19 @@ export default function SceneManager() {
         <ambientLight intensity={0.5} />
 
         <Suspense fallback={null}>
-          <group visible={activeMode === MODES.PULSE_GARDEN}><PulseGarden /></group>
-          <group visible={activeMode === MODES.NEON_RIFT}><NeonRift /></group>
-          <group visible={activeMode === MODES.AURORA_INK}><AuroraInk /></group>
+          <group visible={activeMode === MODES.PULSE_GARDEN}>
+            <PulseGarden />
+          </group>
+          <group visible={activeMode === MODES.NEON_RIFT}>
+            <NeonRift />
+          </group>
+          <group visible={activeMode === MODES.AURORA_INK}>
+            <AuroraInk />
+          </group>
         </Suspense>
 
         <EffectComposer>
-          <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.85} intensity={1.2} />
+          <Bloom luminanceThreshold={0.1} luminanceSmoothing={0.9} height={300} />
         </EffectComposer>
       </Canvas>
     </div>

@@ -17,14 +17,15 @@ class AudioEngine {
       zcr: 0,
       energy: 0,
       brightness: 0,
-      energyDelta: 0,  // NEW
+      energyDelta: 0,
+      energyTrend: 'steady', // NEW: human-readable trend label
     };
 
     // Buffered history for trend detection
     this.history = {
       rms: new Array(100).fill(0),
       energy: new Array(100).fill(0),
-      spectralCentroid: new Array(100).fill(0),  // NEW
+      spectralCentroid: new Array(100).fill(0),
     };
 
     this.isPlaying = false;
@@ -119,6 +120,12 @@ class AudioEngine {
     this.history.energy.push(this.currentFeatures.energy);
     this.history.spectralCentroid.shift();
     this.history.spectralCentroid.push(this.currentFeatures.spectralCentroid);
+
+    // energyTrend: compare first 15 vs last 15 of recent 30 frames
+    const recentEnergy = this.history.energy.slice(-30);
+    const first = recentEnergy.slice(0, 15).reduce((a, b) => a + b, 0) / 15;
+    const last = recentEnergy.slice(15).reduce((a, b) => a + b, 0) / 15;
+    this.currentFeatures.energyTrend = last > first * 1.15 ? 'rising' : last < first * 0.85 ? 'falling' : 'steady';
   }
 
   lerp(start, end, amt) {

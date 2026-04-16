@@ -9,7 +9,8 @@ const PARTICLE_COUNT = 1200;
 export default function PulseGarden() {
   const pointsRef = useRef();
   const { sensitivity } = useAppContext();
-  const targetScale = useRef(new THREE.Vector3(1, 1, 1)); // Fix: persistent ref, no per-frame alloc
+  const targetScale = useRef(new THREE.Vector3(1, 1, 1));
+  const colorRef = useRef(new THREE.Color()); // Fix: persistent color ref, no per-frame alloc
 
   const { positions, colors } = useMemo(() => {
     const positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -33,16 +34,16 @@ export default function PulseGarden() {
     if (!pointsRef.current) return;
 
     const scale = 1 + features.energy * sensitivity * 8;
-    targetScale.current.setScalar(scale); // Fix: reuse same object
+    targetScale.current.setScalar(scale);
     pointsRef.current.scale.lerp(targetScale.current, 0.08);
     pointsRef.current.rotation.y += delta * (0.1 + features.energy * 0.5);
 
-    // Shift hue based on brightness
+    // Shift hue based on brightness — reuse persistent colorRef, no allocation
     const hue = (0.45 + features.brightness * 0.4) % 1.0;
-    const color = new THREE.Color().setHSL(hue, 0.9, 0.6);
+    colorRef.current.setHSL(hue, 0.9, 0.6);
     const colAttr = pointsRef.current.geometry.attributes.color;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-      colAttr.setXYZ(i, color.r, color.g, color.b);
+      colAttr.setXYZ(i, colorRef.current.r, colorRef.current.g, colorRef.current.b);
     }
     colAttr.needsUpdate = true;
   });
