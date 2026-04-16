@@ -1,5 +1,5 @@
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const REDIRECT_URI = 'http://127.0.0.1:5173/';
+const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || `${window.location.origin}/`;
 const SCOPES = 'user-read-playback-state user-read-currently-playing';
 
 // Accept messages from both 127.0.0.1 and localhost — Vite may serve on either,

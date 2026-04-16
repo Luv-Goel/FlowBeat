@@ -19,12 +19,12 @@
         if (window.opener) {
           if (code) {
             console.log('[FlowBeat popup] Sending spotify_code to opener...');
-            window.opener.postMessage({ spotify_code: code }, window.location.origin);
+            window.opener.postMessage({ spotify_code: code }, '*');
             console.log('[FlowBeat popup] postMessage sent. Closing...');
             window.close();
           } else if (error) {
             console.log('[FlowBeat popup] Sending spotify_error to opener...');
-            window.opener.postMessage({ spotify_error: error }, window.location.origin);
+            window.opener.postMessage({ spotify_error: error }, '*');
             window.close();
           } else {
             console.log('[FlowBeat popup] No code or error in URL — not a callback page.');
