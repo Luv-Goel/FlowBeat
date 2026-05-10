@@ -7,6 +7,7 @@ import PulseGarden from './modes/PulseGarden';
 import NeonRift from './modes/NeonRift';
 import AuroraInk from './modes/AuroraInk';
 import SpotifyMode from './modes/SpotifyMode';
+import Spectrogram3D from '../components/Spectrogram3D';
 import * as THREE from 'three';
 
 // Expose the WebGL canvas element to the parent via callback
@@ -40,6 +41,7 @@ function ActiveMode() {
     case MODES.NEON_RIFT:    return <NeonRift    key="neon" />;
     case MODES.AURORA_INK:   return <AuroraInk   key="aurora" />;
     case MODES.SPOTIFY:      return <SpotifyMode key="spotify" />;
+    case MODES.SPECTROGRAM_3D: return <Spectrogram3D key="spec3d" />;
     default:                 return null;
   }
 }

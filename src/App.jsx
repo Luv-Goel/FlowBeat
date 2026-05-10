@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { AppProvider, MODES, useAppContext } from './AppContext';
 import SceneManager from './visuals/SceneManager';
 import StudioScope from './visuals/modes/StudioScope';
+import WaveformVisualizer from './components/WaveformVisualizer';
 import ControlPanel from './ui/ControlPanel';
 import { audioEngine } from './audio/AudioEngine';
 
@@ -31,7 +32,9 @@ function AppInner() {
       if (e.key === '2') setActiveMode(MODES.NEON_RIFT);
       if (e.key === '3') setActiveMode(MODES.AURORA_INK);
       if (e.key === '4') setActiveMode(MODES.STUDIO_SCOPE);
-      if (e.key === '5') setActiveMode(MODES.SPOTIFY);
+      if (e.key === '5') setActiveMode(MODES.WAVEFORM);
+      if (e.key === '6') setActiveMode(MODES.SPECTROGRAM_3D);
+      if (e.key === '7') setActiveMode(MODES.SPOTIFY);
     };
 
     window.addEventListener('keydown', handler);
@@ -45,6 +48,7 @@ function AppInner() {
       <div className="canvas-container">
         <SceneManager onCanvasReady={handleCanvasReady} />
         {activeMode === MODES.STUDIO_SCOPE && <StudioScope />}
+        {activeMode === MODES.WAVEFORM && <WaveformVisualizer />}
       </div>
       <ControlPanel canvasRef={canvasRef} />
     </div>

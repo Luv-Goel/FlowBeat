@@ -7,6 +7,8 @@ export const MODES = {
   NEON_RIFT: 'Neon Rift',
   AURORA_INK: 'Aurora Ink',
   STUDIO_SCOPE: 'Studio Scope',
+  WAVEFORM: 'Waveform',
+  SPECTROGRAM_3D: 'Spectrogram 3D',
   SPOTIFY: 'Spotify',
 };
 
