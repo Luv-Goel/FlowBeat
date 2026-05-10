@@ -1,0 +1,25 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source files
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.svg   text
+
+# Binary files
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.webp  binary
+*.mp4   binary
+*.ogg   binary
+*.webm  binary
+
+# Lockfile — keep as-is
+package-lock.json -diff
